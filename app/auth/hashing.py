@@ -33,3 +33,4 @@ def get_password_hash(password: str) -> str:
         # Ultimate fallback - use a simple hash (not recommended for production)
         salt = secrets.token_hex(16)
         return f"sha256${salt}${hashlib.sha256((password + salt).encode()).hexdigest()}"
+    

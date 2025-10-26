@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth.security import get_current_user
+from app.auth.security import get_current_active_user  # Fixed import
 from app.models.user import User
 from app.models.notification import Notification
 from app.schemas.notification import NotificationResponse, NotificationGroupResponse
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 @router.get("/", response_model=NotificationGroupResponse)
 async def get_notifications(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     all_notifications = db.query(Notification).filter(
         Notification.user_id == current_user.id
@@ -32,7 +32,7 @@ async def get_notifications(
 async def mark_notification_read(
     notification_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     notification = db.query(Notification).filter(
         Notification.id == notification_id,
@@ -52,7 +52,7 @@ async def mark_notification_read(
 @router.get("/unread-count")
 async def get_unread_count(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     count = db.query(Notification).filter(
         Notification.user_id == current_user.id,

@@ -1,11 +1,16 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import datetime
+from typing import List
 
 class NotificationBase(BaseModel):
-    notification_type: str
-    title: str
-    message: str
+    notification_type: str = Field(..., description="Type of notification (system, caregiver, doctor)")
+    title: str = Field(..., description="Notification title")
+    message: str = Field(..., description="Notification message")
+
+class NotificationCreate(NotificationBase):
+    sender_id: Optional[int] = Field(None, description="ID of the sender")
+    sender_type: Optional[str] = Field(None, description="Type of sender")
 
 class NotificationResponse(NotificationBase):
     id: int
@@ -18,6 +23,6 @@ class NotificationResponse(NotificationBase):
     model_config = ConfigDict(from_attributes=True)
 
 class NotificationGroupResponse(BaseModel):
-    system: list[NotificationResponse]
-    caregiver: list[NotificationResponse]
-    doctor: list[NotificationResponse]
+    system: List[NotificationResponse]
+    caregiver: List[NotificationResponse]
+    doctor: List[NotificationResponse]

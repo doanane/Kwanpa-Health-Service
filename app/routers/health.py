@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import random
 from app.database import get_db
-from app.auth.security import get_current_user
+from app.auth.security import get_current_active_user  # Fixed import
 from app.models.user import User, UserProfile
-from app.models.health import HealthData, FoodLog, WeeklyProgress
-from app.schemas.health import HealthDataCreate, HealthDataResponse, FoodLogCreate, FoodLogResponse, WeeklyProgressResponse, HealthDashboardResponse
+from app.models.health import HealthData, FoodLog, WeeklyProgress, HealthInsight
+from app.schemas.health import HealthDataCreate, HealthDataResponse, FoodLogCreate, FoodLogResponse, WeeklyProgressResponse, HealthDashboardResponse, ProgressUpdateRequest
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -25,7 +25,7 @@ def get_daily_tip():
 @router.get("/dashboard", response_model=HealthDashboardResponse)
 async def get_health_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     # Get user profile for welcome message
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
@@ -53,7 +53,10 @@ async def get_health_dashboard(
             week_start_date=week_start,
             week_end_date=week_end,
             progress_score=0,
-            progress_color="red"
+            progress_color="red",
+            steps_goal=10000,
+            sleep_goal=480,
+            water_goal=2000
         )
         db.add(weekly_progress)
         db.commit()
@@ -86,7 +89,7 @@ async def get_health_dashboard(
 async def log_food(
     food_data: FoodLogCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     # Mock AI analysis
     ai_analysis = {
@@ -103,7 +106,8 @@ async def log_food(
         user_id=current_user.id,
         meal_type=food_data.meal_type,
         diet_score=food_data.diet_score or random.randint(60, 95),
-        ai_analysis=ai_analysis
+        ai_analysis=ai_analysis,
+        nutrients=ai_analysis["nutrients"]
     )
     
     db.add(food_log)
@@ -114,7 +118,7 @@ async def log_food(
 @router.get("/weekly-progress", response_model=WeeklyProgressResponse)
 async def get_weekly_progress(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     today = datetime.now()
     week_start = today - timedelta(days=today.weekday())
@@ -135,7 +139,7 @@ async def get_weekly_progress(
 @router.get("/health-snapshot", response_model=HealthDataResponse)
 async def get_health_snapshot(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     snapshot = db.query(HealthData).filter(
         HealthData.user_id == current_user.id
@@ -162,7 +166,7 @@ async def get_health_snapshot(
 async def add_health_data(
     health_data: HealthDataCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     health_record = HealthData(user_id=current_user.id, **health_data.dict())
     db.add(health_record)
@@ -175,7 +179,7 @@ async def get_food_logs(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     logs = db.query(FoodLog).filter(
         FoodLog.user_id == current_user.id
@@ -184,20 +188,20 @@ async def get_food_logs(
 
 @router.post("/update-progress")
 async def update_weekly_progress(
-    progress_score: int,
+    progress_data: ProgressUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     today = datetime.now()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
     
     # Determine progress color
-    if progress_score >= 80:
+    if progress_data.progress_score >= 80:
         progress_color = "green"
-    elif progress_score >= 60:
+    elif progress_data.progress_score >= 60:
         progress_color = "yellow"
-    elif progress_score >= 40:
+    elif progress_data.progress_score >= 40:
         progress_color = "orange"
     else:
         progress_color = "red"
@@ -208,15 +212,18 @@ async def update_weekly_progress(
     ).first()
     
     if weekly_progress:
-        weekly_progress.progress_score = progress_score
+        weekly_progress.progress_score = progress_data.progress_score
         weekly_progress.progress_color = progress_color
     else:
         weekly_progress = WeeklyProgress(
             user_id=current_user.id,
             week_start_date=week_start,
             week_end_date=week_end,
-            progress_score=progress_score,
-            progress_color=progress_color
+            progress_score=progress_data.progress_score,
+            progress_color=progress_color,
+            steps_goal=10000,
+            sleep_goal=480,
+            water_goal=2000
         )
         db.add(weekly_progress)
     

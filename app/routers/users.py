@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import os
 import uuid
 from app.database import get_db
-from app.auth.security import get_current_user
+from app.auth.security import get_current_active_user  # Fixed import
 from app.models.user import User, UserProfile, UserDevice
 from app.schemas.user import UserProfileCreate, UserProfileResponse, UserDeviceCreate, UserDeviceResponse
 
@@ -16,18 +16,29 @@ os.makedirs("uploads", exist_ok=True)
 async def complete_profile(
     profile_data: UserProfileCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
-   
+    # Check if profile already exists
     existing_profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     
+    # Calculate BMI
+    height_m = profile_data.height / 100  # convert cm to meters
+    bmi = int(profile_data.weight / (height_m * height_m))
+    
     if existing_profile:
-       
+        # Update existing profile
         for field, value in profile_data.dict().items():
             setattr(existing_profile, field, value)
+        existing_profile.bmi = bmi
+        existing_profile.profile_completed = True
     else:
-       
-        existing_profile = UserProfile(user_id=current_user.id, **profile_data.dict())
+        # Create new profile
+        existing_profile = UserProfile(
+            user_id=current_user.id, 
+            **profile_data.dict(),
+            bmi=bmi,
+            profile_completed=True
+        )
         db.add(existing_profile)
     
     db.commit()
@@ -37,13 +48,13 @@ async def complete_profile(
 @router.get("/profile", response_model=UserProfileResponse)
 async def get_profile(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
+            detail="Profile not found. Please complete your profile first."
         )
     return profile
 
@@ -51,9 +62,9 @@ async def get_profile(
 async def link_device(
     device_data: UserDeviceCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
-   
+    # Check if device already linked
     existing_device = db.query(UserDevice).filter(
         UserDevice.user_id == current_user.id,
         UserDevice.device_id == device_data.device_id
@@ -74,7 +85,7 @@ async def link_device(
 @router.get("/devices", response_model=list[UserDeviceResponse])
 async def get_devices(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     devices = db.query(UserDevice).filter(UserDevice.user_id == current_user.id).all()
     return devices
@@ -83,7 +94,7 @@ async def get_devices(
 async def unlink_device(
     device_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     device = db.query(UserDevice).filter(
         UserDevice.id == device_id,
@@ -99,3 +110,31 @@ async def unlink_device(
     db.delete(device)
     db.commit()
     return {"message": "Device unlinked successfully"}
+
+@router.post("/upload-profile-image")
+async def upload_profile_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Validate file type
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only image files are allowed"
+        )
+    
+    # Generate unique filename
+    file_extension = file.filename.split('.')[-1]
+    filename = f"{current_user.patient_id}_{uuid.uuid4().hex}.{file_extension}"
+    file_path = os.path.join("uploads", filename)
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+    
+    return {
+        "message": "File uploaded successfully",
+        "filename": filename,
+        "file_url": f"/uploads/{filename}"
+    }

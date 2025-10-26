@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -6,31 +6,39 @@ class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     username: Optional[str] = None
 
-class UserCreate(UserBase):
-    password: str
+class UserCreate(BaseModel):
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
+    password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
 
-class UserResponse(UserBase):
+class UserLogin(BaseModel):
+    login: str = Field(..., description="Email or username")
+    password: str = Field(..., description="Password")
+
+class UserResponse(BaseModel):
     id: int
+    patient_id: str
+    email: Optional[str] = None
+    username: Optional[str] = None
     is_active: bool
+    is_caregiver: bool
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
 
 class UserProfileBase(BaseModel):
-    full_name: str
-    caregiver_id: Optional[str] = None
-    doctor_id: Optional[str] = None
-    gender: str
-    age: int
-    chronic_conditions: List[str] = []
-    family_history: List[str] = []
-    weight: int
-    height: int
-    bmi: Optional[int] = None
-    blood_pressure: str
-    heart_rate: int
-    blood_glucose: int
-    daily_habits: List[str] = []
+    full_name: str = Field(..., description="Full name of the user")
+    doctor_id: Optional[str] = Field(None, description="8-digit doctor ID assigned to this user")
+    gender: str = Field(..., description="Gender (male/female/other)")
+    age: int = Field(..., ge=1, le=120, description="Age between 1 and 120")
+    chronic_conditions: List[str] = Field(default=[], description="List of chronic conditions")
+    family_history: List[str] = Field(default=[], description="Family medical history")
+    weight: int = Field(..., ge=1, le=500, description="Weight in kg")
+    height: int = Field(..., ge=1, le=300, description="Height in cm")
+    blood_pressure: str = Field(..., description="Blood pressure reading (e.g., 120/80)")
+    heart_rate: int = Field(..., ge=1, le=200, description="Resting heart rate (BPM)")
+    blood_glucose: int = Field(..., ge=1, le=500, description="Blood glucose level")
+    daily_habits: List[str] = Field(default=[], description="Daily habits and routines")
 
 class UserProfileCreate(UserProfileBase):
     pass
@@ -38,13 +46,15 @@ class UserProfileCreate(UserProfileBase):
 class UserProfileResponse(UserProfileBase):
     id: int
     user_id: int
+    bmi: Optional[int] = None
+    profile_completed: bool
     
     model_config = ConfigDict(from_attributes=True)
 
 class UserDeviceBase(BaseModel):
-    device_type: str
-    device_name: str
-    device_id: str
+    device_type: str = Field(..., description="Type of device (smartwatch, fitness_tracker, etc.)")
+    device_name: str = Field(..., description="Name of the device")
+    device_id: str = Field(..., description="Unique device identifier")
 
 class UserDeviceCreate(UserDeviceBase):
     pass
@@ -59,6 +69,8 @@ class UserDeviceResponse(UserDeviceBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user_type: str
 
 class TokenData(BaseModel):
     user_id: Optional[int] = None
+    user_type: Optional[str] = None
