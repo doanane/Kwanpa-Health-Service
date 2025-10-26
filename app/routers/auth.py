@@ -3,7 +3,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
-from app.auth.security import verify_password, get_password_hash, create_access_token, get_current_user
+from app.auth.security import create_access_token, get_current_user
+from app.auth.hashing import verify_password, get_password_hash
 from app.models.user import User
 from app.schemas.user import UserCreate, Token, UserResponse
 
