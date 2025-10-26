@@ -1,23 +1,21 @@
-from pydantic_settings import BaseSettings
+from pydantic import BaseModel
 from typing import Optional
+import os
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
+# Load environment variables from .env file
+load_dotenv()
+
+class Settings(BaseModel):
+    # Database
+    DATABASE_URL: str = os.getenv("DATABASE_URL")
     
-    DATABASE_URL: str
+    # Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "-GHyAbetQfDupfx6XXyDkSu0vVkKzmdG4kIMYp7Q13A")
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
-    
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
-    
-    GOOGLE_CLIENT_ID: Optional[str] = None
-    GOOGLE_CLIENT_SECRET: Optional[str] = None
-    
-    
-    ENVIRONMENT: str = "development"
-    
-    class Config:
-        env_file = ".env"
+    # Environment
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
 settings = Settings()

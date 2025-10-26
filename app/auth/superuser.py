@@ -5,7 +5,7 @@ import secrets
 
 security = HTTPBasic()
 
-# Simple superuser check - in production, use proper database authentication
+
 def verify_superuser(credentials: HTTPBasicCredentials = Depends(security)):
     correct_username = secrets.compare_digest(credentials.username, "admin")
     correct_password = secrets.compare_digest(credentials.password, "admin123")
