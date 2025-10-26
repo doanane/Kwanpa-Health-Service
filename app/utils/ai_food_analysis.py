@@ -22,7 +22,7 @@ class FoodAnalyzer:
         
         overall_score = int((protein_score + carb_score + vegetable_score) / 3)
         
-        # Generate tips
+       
         tips = []
         if normalized_portions["carbohydrates"] > 50:
             tips.append("Try reducing carbohydrate intake")

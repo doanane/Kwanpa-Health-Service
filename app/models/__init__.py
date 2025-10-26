@@ -1,9 +1,9 @@
-from app.models.user import User, UserProfile, UserDevice
-from app.models.health import HealthData, FoodLog, WeeklyProgress
-from app.models.notification import Notification
+from .user import User, UserProfile, UserDevice
+from .health import HealthData, FoodLog, WeeklyProgress
+from .notification import Notification
 
 __all__ = [
-    "User", "UserProfile", "UserDevice", 
+    "User", "UserProfile", "UserDevice",
     "HealthData", "FoodLog", "WeeklyProgress", 
     "Notification"
 ]

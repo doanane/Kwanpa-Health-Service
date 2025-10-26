@@ -18,15 +18,15 @@ async def complete_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check if profile already exists
+   
     existing_profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     
     if existing_profile:
-        # Update existing profile
+       
         for field, value in profile_data.dict().items():
             setattr(existing_profile, field, value)
     else:
-        # Create new profile
+       
         existing_profile = UserProfile(user_id=current_user.id, **profile_data.dict())
         db.add(existing_profile)
     
@@ -53,7 +53,7 @@ async def link_device(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check if device already linked
+   
     existing_device = db.query(UserDevice).filter(
         UserDevice.user_id == current_user.id,
         UserDevice.device_id == device_data.device_id

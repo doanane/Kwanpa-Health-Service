@@ -41,10 +41,6 @@ class WeeklyProgressBase(BaseModel):
     progress_score: int
     progress_color: str
 
-class WeeklyProgressCreate(WeeklyProgressBase):
-    week_start_date: datetime
-    week_end_date: datetime
-
 class WeeklyProgressResponse(WeeklyProgressBase):
     id: int
     user_id: int
