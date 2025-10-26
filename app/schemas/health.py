@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -19,8 +19,7 @@ class HealthDataResponse(HealthDataBase):
     user_id: int
     date: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class FoodLogBase(BaseModel):
     meal_type: str
@@ -33,11 +32,10 @@ class FoodLogResponse(FoodLogBase):
     id: int
     user_id: int
     food_image_url: Optional[str] = None
-    ai_analysis: Optional[str] = None
+    ai_analysis: Optional[Dict[str, Any]] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class WeeklyProgressBase(BaseModel):
     progress_score: int
@@ -53,8 +51,7 @@ class WeeklyProgressResponse(WeeklyProgressBase):
     week_start_date: datetime
     week_end_date: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class HealthDashboardResponse(BaseModel):
     welcome_message: str

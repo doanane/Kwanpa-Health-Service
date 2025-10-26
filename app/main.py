@@ -1,56 +1,73 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
-from app.routers import auth
+from fastapi.staticfiles import StaticFiles
 import os
+from app.database import create_tables
+from app.routers import auth, users, health, notifications, caregivers
+from app.config import settings
 
-# Create tables only if DATABASE_URL is set (i.e., in production)
-if os.getenv("DATABASE_URL"):
-    try:
-        Base.metadata.create_all(bind=engine)
-        print("Database tables created successfully")
-    except Exception as e:
-        print(f"Error creating database tables: {e}")
+# Create database tables on startup
+create_tables()
 
 app = FastAPI(
     title="Kwanpa Health API",
     description="Comprehensive health tracking and caregiver coordination platform",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
+    redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
 )
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Serve uploaded files
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # Include routers
 app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(health.router)
+app.include_router(notifications.router)
+app.include_router(caregivers.router)
 
 @app.get("/")
 async def root():
     return {
         "message": "Welcome to Kwanpa Health API",
         "version": "1.0.0",
-        "endpoints": {
-            "auth": "/auth"
-        }
+        "environment": settings.ENVIRONMENT,
+        "database": "PostgreSQL on Render",
+        "status": "healthy"
     }
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "Kwanpa API"}
-
-@app.get("/debug")
-async def debug_info():
     return {
-        "database_url_set": bool(os.getenv("DATABASE_URL")),
-        "secret_key_set": bool(os.getenv("SECRET_KEY")),
+        "status": "healthy", 
+        "service": "Kwanpa API", 
+        "database": "connected",
+        "environment": settings.ENVIRONMENT
     }
+
+@app.on_event("startup")
+async def startup_event():
+    print("🚀 Kwanpa API starting up...")
+    print(f"🌍 Environment: {settings.ENVIRONMENT}")
+    print(f"🗄️ Database connected successfully!")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=settings.ENVIRONMENT == "development"
+    )

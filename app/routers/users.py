@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
+import os
+import uuid
 from app.database import get_db
 from app.auth.security import get_current_user
 from app.models.user import User, UserProfile, UserDevice
 from app.schemas.user import UserProfileCreate, UserProfileResponse, UserDeviceCreate, UserDeviceResponse
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+# Ensure upload directory exists
+os.makedirs("uploads", exist_ok=True)
 
 @router.post("/complete-profile", response_model=UserProfileResponse)
 async def complete_profile(
