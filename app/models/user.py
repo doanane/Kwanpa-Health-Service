@@ -22,6 +22,8 @@ class User(Base):
     food_logs = relationship("FoodLog", back_populates="user", cascade="all, delete-orphan")
     weekly_progress = relationship("WeeklyProgress", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    # salt = Column(String, nullable=True)
+
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
