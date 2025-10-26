@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -10,9 +11,9 @@ class HealthData(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     date = Column(DateTime(timezone=True), server_default=func.now())
     steps = Column(Integer, default=0)
-    sleep_time = Column(Integer)  # in minutes
+    sleep_time = Column(Integer)
     wake_up_time = Column(DateTime, nullable=True)
-    water_intake = Column(Integer)  # in ml
+    water_intake = Column(Integer)
     blood_pressure = Column(String)
     heart_rate = Column(Integer)
     blood_glucose = Column(Float)
@@ -24,9 +25,9 @@ class FoodLog(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    meal_type = Column(String)  # breakfast, lunch, supper
+    meal_type = Column(String)
     food_image_url = Column(String, nullable=True)
-    ai_analysis = Column(Text, nullable=True)
+    ai_analysis = Column(JSONB)
     diet_score = Column(Integer)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -40,6 +41,6 @@ class WeeklyProgress(Base):
     week_start_date = Column(DateTime)
     week_end_date = Column(DateTime)
     progress_score = Column(Integer)
-    progress_color = Column(String)  # red, orange, yellow, green
+    progress_color = Column(String)
     
     user = relationship("User", back_populates="weekly_progress")

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -19,8 +19,7 @@ class UserResponse(UserBase):
     is_active: bool
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserProfileBase(BaseModel):
     full_name: str
@@ -45,8 +44,7 @@ class UserProfileResponse(UserProfileBase):
     id: int
     user_id: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserDeviceBase(BaseModel):
     device_type: str
@@ -61,8 +59,7 @@ class UserDeviceResponse(UserDeviceBase):
     user_id: int
     connected_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):
     access_token: str
