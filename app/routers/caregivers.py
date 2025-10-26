@@ -18,7 +18,7 @@ async def doctor_login(credentials: dict, db: Session = Depends(get_db)):
             detail="Invalid credentials"
         )
     
-    # For demo, accept any doctor_id/password
+    
     return {
         "access_token": f"doctor_token_{doctor_id}",
         "token_type": "bearer",
@@ -30,7 +30,7 @@ async def get_patients(
     doctor_id: str,
     db: Session = Depends(get_db)
 ):
-    # Get patients for this doctor
+    
     patients = db.query(UserProfile).filter(
         UserProfile.doctor_id == doctor_id
     ).all()
@@ -58,7 +58,7 @@ async def get_patient_dashboard(
     doctor_id: str,
     db: Session = Depends(get_db)
 ):
-    # Verify doctor has access to this patient
+    
     patient_profile = db.query(UserProfile).filter(
         UserProfile.user_id == patient_id,
         UserProfile.doctor_id == doctor_id
@@ -70,7 +70,7 @@ async def get_patient_dashboard(
             detail="Patient not found or access denied"
         )
     
-    # Get comprehensive patient data
+    
     health_data = db.query(HealthData).filter(
         HealthData.user_id == patient_id
     ).order_by(HealthData.date.desc()).first()
@@ -83,7 +83,7 @@ async def get_patient_dashboard(
         FoodLog.user_id == patient_id
     ).order_by(FoodLog.created_at.desc()).limit(5).all()
     
-    # Generate insights
+    
     insights = []
     if health_data:
         if health_data.blood_glucose and health_data.blood_glucose > 140:
@@ -123,7 +123,7 @@ async def send_message(
             detail="Missing required fields"
         )
     
-    # Create notification
+    
     notification = Notification(
         user_id=patient_id,
         notification_type=sender_type,
@@ -140,7 +140,7 @@ async def send_message(
 
 @router.get("/ranking")
 async def get_ranking(db: Session = Depends(get_db)):
-    # Get users with their weekly progress for ranking
+    
     weekly_progress = db.query(WeeklyProgress).order_by(
         WeeklyProgress.progress_score.desc()
     ).all()

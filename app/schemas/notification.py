@@ -7,10 +7,6 @@ class NotificationBase(BaseModel):
     title: str
     message: str
 
-class NotificationCreate(NotificationBase):
-    sender_id: Optional[int] = None
-    sender_type: Optional[str] = None
-
 class NotificationResponse(NotificationBase):
     id: int
     user_id: int

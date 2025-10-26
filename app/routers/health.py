@@ -103,7 +103,7 @@ async def log_food(
         user_id=current_user.id,
         meal_type=food_data.meal_type,
         diet_score=food_data.diet_score or random.randint(60, 95),
-        ai_analysis=str(ai_analysis)
+        ai_analysis=ai_analysis
     )
     
     db.add(food_log)

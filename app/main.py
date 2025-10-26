@@ -6,18 +6,18 @@ from app.database import create_tables
 from app.routers import auth, users, health, notifications, caregivers
 from app.config import settings
 
-# Create database tables on startup
+
 create_tables()
 
 app = FastAPI(
     title="Kwanpa Health API",
     description="Comprehensive health tracking and caregiver coordination platform",
     version="1.0.0",
-    docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
-    redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-# CORS middleware
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,11 +26,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve uploaded files
+
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Include routers
+
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(health.router)
@@ -43,7 +43,7 @@ async def root():
         "message": "Welcome to Kwanpa Health API",
         "version": "1.0.0",
         "environment": settings.ENVIRONMENT,
-        "database": "PostgreSQL on Render",
+        "database": "PostgreSQL",
         "status": "healthy"
     }
 
@@ -61,13 +61,3 @@ async def startup_event():
     print("🚀 Kwanpa API starting up...")
     print(f"🌍 Environment: {settings.ENVIRONMENT}")
     print(f"🗄️ Database connected successfully!")
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=port,
-        reload=settings.ENVIRONMENT == "development"
-    )
