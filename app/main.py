@@ -20,10 +20,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware
+# CORS middleware for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://your-frontend-domain.vercel.app",  # Update with your frontend URL
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,7 +37,7 @@ app.add_middleware(
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Include routers with tags
+# Include routers
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(health.router)
@@ -42,7 +46,7 @@ app.include_router(caregivers.router)
 app.include_router(doctors.router)
 app.include_router(leaderboard.router)
 app.include_router(admin.router)
-app.include_router(superuser.router)  # Add superuser router
+app.include_router(superuser.router)
 
 @app.get("/")
 async def root():
@@ -50,18 +54,8 @@ async def root():
         "message": "Welcome to Kwanpa Health API",
         "version": "2.0.0",
         "environment": settings.ENVIRONMENT,
-        "database": "PostgreSQL",
         "status": "healthy",
-        "features": [
-            "User authentication with email/username",
-            "Doctor portal with 8-digit IDs", 
-            "Caregiver volunteer system",
-            "Health tracking and AI analysis",
-            "Weekly progress leaderboard",
-            "Real-time notifications",
-            "Admin management",
-            "Superuser portal"
-        ]
+        "docs": "/docs"
     }
 
 @app.get("/health")
@@ -72,11 +66,3 @@ async def health_check():
         "database": "connected",
         "environment": settings.ENVIRONMENT
     }
-
-@app.on_event("startup")
-async def startup_event():
-    print("🚀 Kwanpa Health API starting up...")
-    print(f"🌍 Environment: {settings.ENVIRONMENT}")
-    print(f"🗄️ Database connected successfully!")
-    print(f"📊 Available features: User Portal, Doctor Dashboard, Caregiver System, Leaderboard")
-    print(f"🔐 Superuser credentials: admin / admin123")
