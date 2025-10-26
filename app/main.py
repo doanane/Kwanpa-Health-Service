@@ -1,12 +1,16 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from app.database import engine, Base
-from app.routers import auth, users, health, notifications, caregivers
-import traceback
+from app.routers import auth
+import os
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Create tables only if DATABASE_URL is set (i.e., in production)
+if os.getenv("DATABASE_URL"):
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("Database tables created successfully")
+    except Exception as e:
+        print(f"Error creating database tables: {e}")
 
 app = FastAPI(
     title="Kwanpa Health API",
@@ -17,29 +21,14 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Adjust this in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "detail": str(exc),
-            "traceback": traceback.format_exc()
-        }
-    )
-
 # Include routers
 app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(health.router)
-app.include_router(notifications.router)
-app.include_router(caregivers.router)
 
 @app.get("/")
 async def root():
@@ -47,11 +36,7 @@ async def root():
         "message": "Welcome to Kwanpa Health API",
         "version": "1.0.0",
         "endpoints": {
-            "auth": "/auth",
-            "users": "/users", 
-            "health": "/health",
-            "notifications": "/notifications",
-            "caregivers": "/caregivers"
+            "auth": "/auth"
         }
     }
 
@@ -59,6 +44,13 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "Kwanpa API"}
 
+@app.get("/debug")
+async def debug_info():
+    return {
+        "database_url_set": bool(os.getenv("DATABASE_URL")),
+        "secret_key_set": bool(os.getenv("SECRET_KEY")),
+    }
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
