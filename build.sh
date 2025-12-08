@@ -1,7 +1,7 @@
 #!/bin/bash
 # build.sh - Build script for Render deployment
 
-echo "🚀 Starting Kwanpa Backend Build Process..."
+echo "🚀 Starting HEWAL3 Backend Build Process..."
 
 echo "📦 Installing dependencies..."
 pip install -r requirements.txt

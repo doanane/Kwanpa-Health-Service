@@ -1,33 +1,39 @@
+# app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
-from app.database import create_tables
-from app.routers import (
-    auth, users, health, notifications, 
-    caregivers, doctors, leaderboard, admin, superuser
-)
+import logging
+from app.database import create_tables, engine
 from app.config import settings
 
-# Create database tables on startup
-create_tables()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Try to create tables, but don't crash if it fails
+try:
+    create_tables()
+    logger.info("✅ Database setup completed")
+except Exception as e:
+    logger.warning(f"⚠️  Database setup warning: {e}")
+    if settings.ENVIRONMENT == "development":
+        logger.info("🔄 Continuing in development mode...")
+    else:
+        # In production, we might want to be stricter
+        logger.error("🚨 Database setup failed in production!")
 
 app = FastAPI(
-    title="Kwanpa Health API",
-    description="Comprehensive health tracking and caregiver coordination platform",
-    version="2.0.0",
+    title="HEWAL3 Health API",
+    description="AI-powered health management system with emergency response",
+    version="3.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# CORS middleware for production
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://your-frontend-domain.vercel.app",  # Update with your frontend URL
-    ],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,32 +43,57 @@ app.add_middleware(
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Include routers
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(health.router)
-app.include_router(notifications.router)
-app.include_router(caregivers.router)
-app.include_router(doctors.router)
-app.include_router(leaderboard.router)
-app.include_router(admin.router)
-app.include_router(superuser.router)
+# Import and include routers
+try:
+    from app.routers import (
+        auth, users, health, notifications, 
+        caregivers, doctors, leaderboard, admin
+    )
+    
+    app.include_router(auth.router)
+    app.include_router(users.router)
+    app.include_router(health.router)
+    app.include_router(notifications.router)
+    app.include_router(caregivers.router)
+    app.include_router(doctors.router)
+    app.include_router(leaderboard.router)
+    app.include_router(admin.router)
+    
+    logger.info("✅ All routers loaded successfully")
+    
+except Exception as e:
+    logger.error(f"🚨 Error loading routers: {e}")
 
 @app.get("/")
 async def root():
+    # Check if database is connected
+    db_status = "unknown"
+    try:
+        with engine.connect():
+            db_status = "connected"
+    except:
+        db_status = "disconnected"
+    
     return {
-        "message": "Welcome to Kwanpa Health API",
-        "version": "2.0.0",
+        "message": "Welcome to HEWAL3 Health API",
+        "version": "3.0.0",
         "environment": settings.ENVIRONMENT,
-        "status": "healthy",
+        "database": db_status,
+        "status": "running",
         "docs": "/docs"
     }
 
 @app.get("/health")
 async def health_check():
+    try:
+        with engine.connect():
+            db_status = "connected"
+    except:
+        db_status = "disconnected"
+    
     return {
-        "status": "healthy", 
-        "service": "Kwanpa API", 
-        "database": "connected",
+        "status": "healthy" if db_status == "connected" else "degraded",
+        "service": "HEWAL3 API", 
+        "database": db_status,
         "environment": settings.ENVIRONMENT
     }
