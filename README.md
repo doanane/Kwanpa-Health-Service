@@ -1,4 +1,4 @@
-# Kwanpa Health API
+# HEWAL3 Health API
 
 A comprehensive health tracking and caregiver coordination platform built with FastAPI.
 
@@ -23,4 +23,4 @@ A comprehensive health tracking and caregiver coordination platform built with F
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd kwanpa-backend
+cd HEWAL3-backend
