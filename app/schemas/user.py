@@ -7,13 +7,19 @@ class UserBase(BaseModel):
     username: Optional[str] = None
 
 class UserCreate(BaseModel):
-    email: Optional[EmailStr] = None
-    username: Optional[str] = None
+    email: EmailStr = Field(..., description="Email address for registration")
+    username: Optional[str] = Field(None, description="Username (optional)")
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
 
 class UserLogin(BaseModel):
-    login: str = Field(..., description="Email or username")
+    email: EmailStr = Field(..., description="Email used during signup")
     password: str = Field(..., description="Password")
+
+class SignupResponse(BaseModel):
+    message: str
+    user_id: int
+    patient_id: str
+    email: str
 
 class UserResponse(BaseModel):
     id: int

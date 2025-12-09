@@ -19,7 +19,12 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_caregiver = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    emergency_contacts = relationship("EmergencyContact", back_populates="user", cascade="all, delete-orphan")
+    emergency_events = relationship("EmergencyEvent", back_populates="user", cascade="all, delete-orphan")
     
+
+
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     devices = relationship("UserDevice", back_populates="user", cascade="all, delete-orphan")
     health_data = relationship("HealthData", back_populates="user", cascade="all, delete-orphan")
