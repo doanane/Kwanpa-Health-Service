@@ -84,6 +84,29 @@ def get_db():
     finally:
         db.close()
 
+# app/database.py
+def create_tables():
+    """Create database tables - DROPS EXISTING TABLES FIRST"""
+    try:
+        # Import all models to ensure they're registered with Base
+        from app.models import (
+            user, health, notification, 
+            caregiver, emergency
+        )
+        
+        # Drop all tables first (use with caution in production!)
+        if settings.ENVIRONMENT == "development":
+            Base.metadata.drop_all(bind=engine)
+            print("Dropped existing tables...")
+        
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        print("Database tables created successfully!")
+        
+    except Exception as e:
+        print(f"Error creating tables: {e}")
+        raise e
+
 def create_tables():
     """Create database tables safely"""
     try:
