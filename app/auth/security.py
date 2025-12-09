@@ -1,17 +1,16 @@
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Optional
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.caregiver import Doctor
 
-# Different token URLs for different user types
-oauth2_scheme_user = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
-oauth2_scheme_doctor = OAuth2PasswordBearer(tokenUrl="doctors/login", auto_error=False)
+# Use HTTPBearer for Swagger UI
+security_scheme = HTTPBearer(auto_error=False)
 
 def create_access_token(data: dict, user_type: str, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -24,7 +23,7 @@ def create_access_token(data: dict, user_type: str, expires_delta: Optional[time
     return encoded_jwt
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme_user), 
+    token: Optional[str] = Depends(security_scheme), 
     db: Session = Depends(get_db)
 ) -> User:
     credentials_exception = HTTPException(
@@ -37,7 +36,7 @@ async def get_current_user(
         raise credentials_exception
         
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         user_type: str = payload.get("user_type")
         
@@ -52,7 +51,7 @@ async def get_current_user(
     return user
 
 async def get_current_doctor(
-    token: str = Depends(oauth2_scheme_doctor), 
+    token: Optional[str] = Depends(security_scheme), 
     db: Session = Depends(get_db)
 ) -> Doctor:
     credentials_exception = HTTPException(
@@ -65,7 +64,7 @@ async def get_current_doctor(
         raise credentials_exception
         
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         doctor_id: str = payload.get("sub")
         user_type: str = payload.get("user_type")
         
