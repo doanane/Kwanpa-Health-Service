@@ -1,27 +1,24 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
 
-class CaregiverRequest(BaseModel):
-    patient_id: str = Field(..., description="Patient ID to request caregiver relationship with")
-    relationship_type: str = Field(..., description="Type of relationship (family, volunteer, professional)")
+class CaregiverVolunteerRequest(BaseModel):
+    experience: Optional[str] = Field(None, description="Previous caregiving experience")
+    availability: Optional[str] = Field(None, description="Availability schedule")
 
-class CaregiverRelationshipResponse(BaseModel):
-    id: int
+class CaregiverRequestCreate(BaseModel):
+    patient_id: int = Field(..., description="ID of patient to care for")
+    relationship_type: str = Field(..., description="Relationship (family, friend, professional)")
+    message: Optional[str] = Field(None, description="Optional message to patient")
+
+class CaregiverDashboardResponse(BaseModel):
     caregiver_id: int
+    total_patients: int
+    patients: List[Dict[str, Any]]
+
+class PatientInsightsResponse(BaseModel):
     patient_id: int
     patient_name: str
-    patient_patient_id: str
-    relationship_type: str
-    status: str
-    created_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
-
-class CaregiverDashboard(BaseModel):
-    caregiver_relationships: List[CaregiverRelationshipResponse]
-    total_patients: int
-    recent_updates: List[Dict[str, Any]]
-
-class CaregiverMessageRequest(BaseModel):
-    message: str = Field(..., description="Message to send to patient")
+    latest_health_data: Dict[str, Any]
+    weekly_average_heart_rate: Optional[float]
+    insights: str
+    recommendations: List[str]

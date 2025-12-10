@@ -12,7 +12,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=True)
     username = Column(String, unique=True, index=True, nullable=True)
-    patient_id = Column(String, unique=True, index=True, nullable=True)  # Allow null initially
+    patient_id = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)
     apple_id = Column(String, unique=True, nullable=True)
@@ -20,19 +20,16 @@ class User(Base):
     is_caregiver = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    emergency_contacts = relationship("EmergencyContact", back_populates="user", cascade="all, delete-orphan")
-    emergency_events = relationship("EmergencyEvent", back_populates="user", cascade="all, delete-orphan")
-    
-
-
+    # Use string references to avoid circular imports
+    emergency_contacts = relationship("EmergencyContact", back_populates="user_rel", cascade="all, delete-orphan")
+    emergency_events = relationship("EmergencyEvent", back_populates="user_rel", cascade="all, delete-orphan")
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     devices = relationship("UserDevice", back_populates="user", cascade="all, delete-orphan")
+    iot_devices = relationship("IoTDevice", back_populates="user", cascade="all, delete-orphan")
     health_data = relationship("HealthData", back_populates="user", cascade="all, delete-orphan")
     food_logs = relationship("FoodLog", back_populates="user", cascade="all, delete-orphan")
     weekly_progress = relationship("WeeklyProgress", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
-    caregiver_relationships = relationship("CaregiverRelationship", foreign_keys="CaregiverRelationship.patient_id", back_populates="patient")
-    caregiving_relationships = relationship("CaregiverRelationship", foreign_keys="CaregiverRelationship.caregiver_id", back_populates="caregiver")
 
     def generate_patient_id(self):
         """Generate patient ID: username + 5 random digits"""
@@ -52,7 +49,7 @@ class UserProfile(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
     full_name = Column(String)
-    doctor_id = Column(String, ForeignKey("doctors.doctor_id"), nullable=True)
+    doctor_id = Column(String, ForeignKey("doctors.doctor_id", ondelete="SET NULL"), nullable=True)
     gender = Column(String)
     age = Column(Integer)
     chronic_conditions = Column(JSONB, default=list)
@@ -67,6 +64,7 @@ class UserProfile(Base):
     profile_completed = Column(Boolean, default=False)
     
     user = relationship("User", back_populates="profile")
+    assigned_doctor = relationship("Doctor", back_populates="patients")  # Add this relationship
 
 class UserDevice(Base):
     __tablename__ = "user_devices"
