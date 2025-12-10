@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 import os
 import uuid
 from app.database import get_db
-from app.auth.security import get_current_active_user  # Fixed import
+from app.auth.security import get_current_active_user
 from app.models.user import User, UserProfile, UserDevice
 from app.schemas.user import UserProfileCreate, UserProfileResponse, UserDeviceCreate, UserDeviceResponse
+from app.models.caregiver import Doctor  
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -24,6 +25,18 @@ async def complete_profile(
     # Calculate BMI
     height_m = profile_data.height / 100  # convert cm to meters
     bmi = int(profile_data.weight / (height_m * height_m))
+    
+    # IMPORTANT: Check if doctor exists
+    doctor = db.query(Doctor).filter(
+        Doctor.doctor_id == profile_data.doctor_id,
+        Doctor.is_active == True
+    ).first()
+    
+    if not doctor:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Doctor with ID '{profile_data.doctor_id}' not found or is inactive. Please provide a valid doctor ID."
+        )
     
     if existing_profile:
         # Update existing profile

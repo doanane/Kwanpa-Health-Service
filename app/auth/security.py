@@ -8,8 +8,8 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.caregiver import Doctor
+from app.models.admin import Admin  # Make sure this import exists
 
-# Use HTTPBearer for Swagger UI
 security_scheme = HTTPBearer(auto_error=False)
 
 def create_access_token(data: dict, user_type: str, expires_delta: Optional[timedelta] = None) -> str:
@@ -78,6 +78,36 @@ async def get_current_doctor(
         raise credentials_exception
     return doctor
 
+async def get_current_admin(
+    token: Optional[str] = Depends(security_scheme), 
+    db: Session = Depends(get_db)
+) -> Admin:
+    """Get current admin from JWT token"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    if not token:
+        raise credentials_exception
+        
+    try:
+        payload = jwt.decode(token.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        admin_email: str = payload.get("sub")
+        user_type: str = payload.get("user_type")
+        
+        if admin_email is None or user_type != "admin":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    admin = db.query(Admin).filter(Admin.email == admin_email).first()
+    if admin is None or not admin.is_active:
+        raise credentials_exception
+    
+    return admin
+
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
@@ -87,3 +117,9 @@ async def get_current_active_doctor(current_doctor: Doctor = Depends(get_current
     if not current_doctor.is_active:
         raise HTTPException(status_code=400, detail="Inactive doctor")
     return current_doctor
+
+async def get_current_active_admin(current_admin: Admin = Depends(get_current_admin)):
+    """Get current active admin"""
+    if not current_admin.is_active:
+        raise HTTPException(status_code=400, detail="Inactive admin")
+    return current_admin
