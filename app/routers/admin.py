@@ -3,85 +3,123 @@ from sqlalchemy.orm import Session
 import secrets
 from app.database import get_db
 from app.auth.hashing import get_password_hash
+from app.auth.security import get_current_admin  
 from app.models.caregiver import Doctor
-from app.schemas.admin import CreateDoctorRequest, CreateDoctorResponse, SuperUserAuth
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# In a real application, you would have proper admin authentication
-# For now, we'll use a simple superuser check
-SUPERUSER_PASSWORD = "admin123"  # Change this in production
-
-def verify_superuser(password: str):
-    return password == SUPERUSER_PASSWORD
-
-@router.post("/create-doctor", response_model=CreateDoctorResponse)
+@router.post("/create-doctor")
 async def create_doctor(
-    doctor_data: CreateDoctorRequest,
-    superuser_auth: SuperUserAuth,
+    doctor_id: str,
+    full_name: str,
+    specialization: str,
+    hospital: str,
+    email: str = None,
+    current_admin = Depends(get_current_admin),  # Change to get_current_admin
     db: Session = Depends(get_db)
 ):
-    if not verify_superuser(superuser_auth.superuser_password):
+    """Create a new doctor (requires admin JWT token)"""
+    
+    # Check if current admin is superadmin
+    if not hasattr(current_admin, 'is_superadmin') or not current_admin.is_superadmin:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid superuser credentials"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superadmins can create doctors"
         )
     
-    # Check if doctor ID already exists
-    existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_data.doctor_id).first()
+    # Also check if admin is active
+    if not current_admin.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin account is inactive"
+        )
+    
+    if len(doctor_id) != 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Doctor ID must be 8 characters"
+        )
+    
+    # Ensure doctor_id starts with DOC
+    if not doctor_id.startswith("DOC"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Doctor ID must start with 'DOC'"
+        )
+    
+    existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
     if existing_doctor:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Doctor ID already exists"
         )
     
-    # Generate initial password (doctor will change it later)
     initial_password = secrets.token_urlsafe(8)
     hashed_password = get_password_hash(initial_password)
     
-    doctor = Doctor(
-        doctor_id=doctor_data.doctor_id,
-        hashed_password=hashed_password,
-        full_name=doctor_data.full_name,
-        specialization=doctor_data.specialization,
-        hospital=doctor_data.hospital,
-        created_by="superuser"
-    )
+    # Create doctor data dict
+    doctor_data = {
+        "doctor_id": doctor_id,
+        "hashed_password": hashed_password,
+        "full_name": full_name,
+        "specialization": specialization,
+        "hospital": hospital,
+        "created_by": current_admin.email,
+        "is_active": True
+    }
+    
+    # Add email only if provided
+    if email:
+        doctor_data["email"] = email
+    
+    doctor = Doctor(**doctor_data)
     
     db.add(doctor)
     db.commit()
     db.refresh(doctor)
     
-    return CreateDoctorResponse(
-        message="Doctor created successfully",
-        doctor_id=doctor.doctor_id,
-        initial_password=initial_password,
-        full_name=doctor.full_name,
-        specialization=doctor.specialization
-    )
+    return {
+        "message": "Doctor created successfully",
+        "doctor_id": doctor.doctor_id,
+        "initial_password": initial_password,
+        "full_name": doctor.full_name,
+        "specialization": doctor.specialization,
+        "hospital": doctor.hospital,
+        "email": email,
+        "created_by": current_admin.email,
+        "note": "Doctor should change password on first login"
+    }
 
 @router.get("/doctors")
 async def list_doctors(
-    superuser_auth: SuperUserAuth,
+    current_admin = Depends(get_current_admin),  # Change to get_current_admin
     db: Session = Depends(get_db)
 ):
-    if not verify_superuser(superuser_auth.superuser_password):
+    """List all doctors (requires admin JWT token)"""
+    
+    # Check if admin is active
+    if not current_admin.is_active:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid superuser credentials"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin account is inactive"
         )
     
     doctors = db.query(Doctor).all()
+    
+    doctor_list = []
+    for doctor in doctors:
+        doctor_list.append({
+            "doctor_id": doctor.doctor_id,
+            "full_name": doctor.full_name,
+            "specialization": doctor.specialization,
+            "hospital": doctor.hospital,
+            "email": doctor.email,
+            "is_active": doctor.is_active,
+            "created_at": doctor.created_at.isoformat() if doctor.created_at else None,
+            "created_by": doctor.created_by
+        })
+    
     return {
-        "doctors": [
-            {
-                "doctor_id": doctor.doctor_id,
-                "full_name": doctor.full_name,
-                "specialization": doctor.specialization,
-                "hospital": doctor.hospital,
-                "is_active": doctor.is_active,
-                "created_at": doctor.created_at
-            }
-            for doctor in doctors
-        ]
+        "total_doctors": len(doctor_list),
+        "doctors": doctor_list
     }

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth.security import get_current_active_user  # Fixed import
+from app.auth.security import get_current_active_user
 from app.models.user import User
 from app.models.notification import Notification
 from app.schemas.notification import NotificationResponse, NotificationGroupResponse
@@ -13,19 +13,19 @@ async def get_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    all_notifications = db.query(Notification).filter(
+    notifications = db.query(Notification).filter(
         Notification.user_id == current_user.id
     ).order_by(Notification.created_at.desc()).all()
     
     # Group by type
-    system_notifications = [n for n in all_notifications if n.notification_type == "system"]
-    caregiver_notifications = [n for n in all_notifications if n.notification_type == "caregiver"]
-    doctor_notifications = [n for n in all_notifications if n.notification_type == "doctor"]
+    system = [n for n in notifications if n.notification_type == "system"]
+    caregiver = [n for n in notifications if n.notification_type == "caregiver"]
+    doctor = [n for n in notifications if n.notification_type == "doctor"]
     
     return NotificationGroupResponse(
-        system=system_notifications,
-        caregiver=caregiver_notifications,
-        doctor=doctor_notifications
+        system=system,
+        caregiver=caregiver,
+        doctor=doctor
     )
 
 @router.post("/mark-read/{notification_id}")
@@ -58,4 +58,5 @@ async def get_unread_count(
         Notification.user_id == current_user.id,
         Notification.is_read == False
     ).count()
+    
     return {"unread_count": count}
