@@ -55,7 +55,6 @@ class EmailService:
             logger.error(f"Error sending email: {e}")
             return False
     
-    
     def send_welcome_email(self, user_email: str, user_name: str, verification_token: str):
         """Send welcome email with verification link"""
         verification_link = f"{self.base_url}/auth/verify-email-page/{verification_token}"
@@ -176,111 +175,6 @@ class EmailService:
         """
         
         return self.send_email(user_email, "Reset Your HEWAL3 Password", html_content, text_content)
-    
-    def send_emergency_alert(self, patient_email: str, patient_name: str, alert_type: str, vitals: Dict[str, Any], doctor_name: str = None):
-        """Send emergency alert email"""
-        subject = f"🚨 EMERGENCY ALERT: {alert_type} detected"
-        
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #dc3545; color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 30px; background-color: #fff3cd; }}
-                .vital {{ background-color: white; padding: 15px; margin: 10px 0; border-left: 4px solid #dc3545; }}
-                .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
-                .action {{ background-color: #dc3545; color: white; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🚨 EMERGENCY HEALTH ALERT</h1>
-                </div>
-                <div class="content">
-                    <h2>Patient: {patient_name}</h2>
-                    <p><strong>Alert Type:</strong> {alert_type}</p>
-                    <p><strong>Time Detected:</strong> {vitals.get('timestamp', 'Just now')}</p>
-                    
-                    <h3>Vital Signs:</h3>
-                    {"".join([f'<div class="vital"><strong>{k}:</strong> {v}</div>' for k, v in vitals.items() if k != 'timestamp'])}
-                    
-                    <div class="action">
-                        <h3>IMMEDIATE ACTION REQUIRED</h3>
-                        <p>1. Contact the patient immediately</p>
-                        <p>2. Check if emergency services have been notified</p>
-                        <p>3. Review patient's location and medical history</p>
-                    </div>
-                    
-                    {f'<p><strong>Assigned Doctor:</strong> {doctor_name}</p>' if doctor_name else ''}
-                    
-                    <p>This is an automated alert from HEWAL3 Emergency Response System.</p>
-                </div>
-                <div class="footer">
-                    <p>© 2025 HEWAL3 Emergency Response System</p>
-                    <p>This is an automated message. Do not reply to this email.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return self.send_email(patient_email, subject, html_content)
-    
-    def send_weekly_report(self, user_email: str, user_name: str, report_data: Dict[str, Any]):
-        """Send weekly health report"""
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 30px; background-color: #f9f9f9; }}
-                .metric {{ background-color: white; padding: 15px; margin: 10px 0; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-                .good {{ border-left: 4px solid #4CAF50; }}
-                .warning {{ border-left: 4px solid #ff9800; }}
-                .danger {{ border-left: 4px solid #f44336; }}
-                .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>Your Weekly Health Report</h1>
-                </div>
-                <div class="content">
-                    <h2>Hello {user_name},</h2>
-                    <p>Here's your weekly health summary for {report_data.get('week_range', 'this week')}:</p>
-                    
-                    <div class="metric good">
-                        <h3>Progress Score: {report_data.get('progress_score', 0)}/100</h3>
-                        <p>{report_data.get('progress_message', 'Keep up the good work!')}</p>
-                    </div>
-                    
-                    {report_data.get('metrics_html', '')}
-                    
-                    <h3>Recommendations:</h3>
-                    <ul>
-                        {"".join([f'<li>{rec}</li>' for rec in report_data.get('recommendations', [])])}
-                    </ul>
-                    
-                    <p>View your complete dashboard for more details and historical data.</p>
-                </div>
-                <div class="footer">
-                    <p>© 2025 HEWAL3 Health System</p>
-                    <p>Stay healthy, stay happy! 💚</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return self.send_email(user_email, "Your Weekly HEWAL3 Health Report", html_content)
 
-# Singleton instance
+# Create a singleton instance
 email_service = EmailService()

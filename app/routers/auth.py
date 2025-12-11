@@ -1079,6 +1079,245 @@ async def get_user_sessions(
         for session in sessions
     ]
 
+# Add these imports at the top of app/routers/auth.py
+from fastapi.responses import HTMLResponse, RedirectResponse
+
+# Add these endpoints to your router
+@router.get("/verify-email-page/{token}", response_class=HTMLResponse)
+async def verify_email_page(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """HTML page to verify email (for direct links from emails)"""
+    # Import models
+    from app.models.auth import EmailVerificationToken
+    from app.models.user import User
+    
+    verification_token = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token == token,
+        EmailVerificationToken.expires_at > datetime.utcnow()
+    ).first()
+    
+    if not verification_token:
+        return HTMLResponse(content="""
+        <html>
+            <head>
+                <title>Email Verification Failed</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                    .success { color: green; }
+                    .error { color: red; }
+                    .container { max-width: 600px; margin: 0 auto; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1 class="error">Email Verification Failed</h1>
+                    <p>The verification link is invalid or has expired.</p>
+                    <p>Please request a new verification email.</p>
+                    <p><a href="/docs#/authentication/resend_verification">Request New Verification Email</a></p>
+                </div>
+            </body>
+        </html>
+        """)
+    
+    user = db.query(User).filter(User.id == verification_token.user_id).first()
+    if not user:
+        return HTMLResponse(content="""
+        <html>
+            <body>
+                <h1>User not found</h1>
+            </body>
+        </html>
+        """)
+    
+    # Verify the email
+    user.is_email_verified = True
+    db.delete(verification_token)
+    db.commit()
+    
+    return HTMLResponse(content=f"""
+    <html>
+        <head>
+            <title>Email Verified Successfully</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                .success {{ color: green; }}
+                .container {{ max-width: 600px; margin: 0 auto; }}
+                .button {{ 
+                    display: inline-block; 
+                    padding: 12px 24px; 
+                    background-color: #4CAF50; 
+                    color: white; 
+                    text-decoration: none; 
+                    border-radius: 5px; 
+                    margin: 20px 0; 
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1 class="success">Email Verified Successfully!</h1>
+                <p>Your email has been verified. You can now log in to your account.</p>
+                <p><strong>Email:</strong> {user.email}</p>
+                <a href="/docs#/authentication/login" class="button">Go to Login</a>
+                <p>Or use the API documentation to make login requests.</p>
+            </div>
+        </body>
+    </html>
+    """)
+
+@router.get("/reset-password-page", response_class=HTMLResponse)
+async def reset_password_page(
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """HTML page to reset password (for direct links from emails)"""
+    # Import models
+    from app.models.auth import PasswordResetToken
+    from app.models.user import User
+    
+    if not token:
+        # Show form to enter token
+        return HTMLResponse(content="""
+        <html>
+            <head>
+                <title>Reset Password</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 50px; max-width: 500px; margin: 0 auto; }
+                    .form-group { margin-bottom: 20px; }
+                    label { display: block; margin-bottom: 5px; }
+                    input { width: 100%; padding: 10px; box-sizing: border-box; }
+                    button { padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+                    .error { color: red; }
+                    .success { color: green; }
+                </style>
+            </head>
+            <body>
+                <h1>Reset Password</h1>
+                <p>Please enter your reset token and new password.</p>
+                <form id="resetForm">
+                    <div class="form-group">
+                        <label for="token">Reset Token (from email):</label>
+                        <input type="text" id="token" name="token" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">New Password:</label>
+                        <input type="password" id="password" name="password" minlength="8" required>
+                    </div>
+                    <button type="submit">Reset Password</button>
+                </form>
+                <div id="message"></div>
+                <script>
+                    document.getElementById('resetForm').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const token = document.getElementById('token').value;
+                        const password = document.getElementById('password').value;
+                        
+                        const response = await fetch('/auth/reset-password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token, new_password: password })
+                        });
+                        
+                        const result = await response.json();
+                        const messageDiv = document.getElementById('message');
+                        
+                        if (response.ok) {
+                            messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
+                            messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                        } else {
+                            messageDiv.innerHTML = '<p class="error">' + (result.detail || 'Error resetting password') + '</p>';
+                        }
+                    });
+                </script>
+            </body>
+        </html>
+        """)
+    
+    # Check if token is valid
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token,
+        PasswordResetToken.is_used == False,
+        PasswordResetToken.expires_at > datetime.utcnow()
+    ).first()
+    
+    if not reset_token:
+        return HTMLResponse(content="""
+        <html>
+            <body>
+                <h1 class="error">Invalid or Expired Token</h1>
+                <p>The password reset token is invalid or has expired.</p>
+                <p>Please request a new password reset.</p>
+                <p><a href="/docs#/authentication/forgot_password">Request New Password Reset</a></p>
+            </body>
+        </html>
+        """)
+    
+    # Show form with pre-filled token
+    return HTMLResponse(content=f"""
+    <html>
+        <head>
+            <title>Reset Password</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 50px; max-width: 500px; margin: 0 auto; }}
+                .form-group {{ margin-bottom: 20px; }}
+                label {{ display: block; margin-bottom: 5px; }}
+                input {{ width: 100%; padding: 10px; box-sizing: border-box; }}
+                button {{ padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }}
+                .error {{ color: red; }}
+                .success {{ color: green; }}
+            </style>
+        </head>
+        <body>
+            <h1>Set New Password</h1>
+            <p>Please enter your new password.</p>
+            <form id="resetForm">
+                <input type="hidden" id="token" value="{token}">
+                <div class="form-group">
+                    <label for="password">New Password (min 8 characters):</label>
+                    <input type="password" id="password" name="password" minlength="8" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password:</label>
+                    <input type="password" id="confirm_password" name="confirm_password" minlength="8" required>
+                </div>
+                <button type="submit">Reset Password</button>
+            </form>
+            <div id="message"></div>
+            <script>
+                document.getElementById('resetForm').addEventListener('submit', async (e) => {{
+                    e.preventDefault();
+                    const token = document.getElementById('token').value;
+                    const password = document.getElementById('password').value;
+                    const confirmPassword = document.getElementById('confirm_password').value;
+                    
+                    if (password !== confirmPassword) {{
+                        document.getElementById('message').innerHTML = '<p class="error">Passwords do not match</p>';
+                        return;
+                    }}
+                    
+                    const response = await fetch('/auth/reset-password', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ token, new_password: password }})
+                    }});
+                    
+                    const result = await response.json();
+                    const messageDiv = document.getElementById('message');
+                    
+                    if (response.ok) {{
+                        messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
+                        messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                    }} else {{
+                        messageDiv.innerHTML = '<p class="error">' + (result.detail || 'Error resetting password') + '</p>';
+                    }}
+                }});
+            </script>
+        </body>
+    </html>
+    """)
+
 @router.delete("/sessions/{session_id}")
 async def revoke_session(
     session_id: int,
