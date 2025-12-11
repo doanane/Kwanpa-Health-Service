@@ -1,3 +1,4 @@
+# app/models/user.py - COMPLETE VERSION
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
@@ -18,9 +19,14 @@ class User(Base):
     apple_id = Column(String, unique=True, nullable=True)
     is_active = Column(Boolean, default=True)
     is_caregiver = Column(Boolean, default=False)
+    # NEW COLUMNS - MAKE SURE THESE ARE HERE:
+    is_email_verified = Column(Boolean, default=False)
+    phone_number = Column(String, nullable=True)
+    mfa_enabled = Column(Boolean, default=False)
+    last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Use string references to avoid circular imports
+    # Relationships
     emergency_contacts = relationship("EmergencyContact", back_populates="user_rel", cascade="all, delete-orphan")
     emergency_events = relationship("EmergencyEvent", back_populates="user_rel", cascade="all, delete-orphan")
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -30,6 +36,19 @@ class User(Base):
     food_logs = relationship("FoodLog", back_populates="user", cascade="all, delete-orphan")
     weekly_progress = relationship("WeeklyProgress", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    # Fix the relationship warnings by adding overlaps parameter
+    caregiver_relationships = relationship(
+        "CaregiverRelationship", 
+        foreign_keys="CaregiverRelationship.patient_id", 
+        back_populates="patient",
+        overlaps="caregivers"
+    )
+    caregiving_relationships = relationship(
+        "CaregiverRelationship", 
+        foreign_keys="CaregiverRelationship.caregiver_id", 
+        back_populates="caregiver",
+        overlaps="caregiving_for"
+    )
 
     def generate_patient_id(self):
         """Generate patient ID: username + 5 random digits"""
@@ -62,9 +81,12 @@ class UserProfile(Base):
     blood_glucose = Column(Integer)
     daily_habits = Column(JSONB, default=list)
     profile_completed = Column(Boolean, default=False)
+    emergency_contact_name = Column(String, nullable=True)
+    emergency_contact_phone = Column(String, nullable=True)
+    emergency_contact_relationship = Column(String, nullable=True)
     
     user = relationship("User", back_populates="profile")
-    assigned_doctor = relationship("Doctor", back_populates="patients")  # Add this relationship
+    assigned_doctor = relationship("Doctor", back_populates="patients")
 
 class UserDevice(Base):
     __tablename__ = "user_devices"
@@ -74,6 +96,7 @@ class UserDevice(Base):
     device_type = Column(String)
     device_name = Column(String)
     device_id = Column(String)
+    fcm_token = Column(String, nullable=True)
     connected_at = Column(DateTime(timezone=True), server_default=func.now())
     
     user = relationship("User", back_populates="devices")
