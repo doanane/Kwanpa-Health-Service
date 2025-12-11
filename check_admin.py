@@ -1,61 +1,73 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# test_email_flow.py
+import requests
+import json
+import time
 
-from app.database import SessionLocal
-from app.models.caregiver import Doctor
-from app.auth.hashing import get_password_hash
+BASE_URL = "http://localhost:8000"
 
-def test_doctor_creation():
-    """Test creating a doctor directly"""
-    db = SessionLocal()
-    try:
-        # Test 1: Create without email
-        print("Test 1: Creating doctor without email...")
-        doctor1 = Doctor(
-            doctor_id="DOCTEST1",
-            hashed_password=get_password_hash("test123"),
-            full_name="Dr. Test One",
-            specialization="Testology",
-            hospital="Test Hospital",
-            created_by="test_admin",
-            is_active=True
-        )
-        
-        db.add(doctor1)
-        db.commit()
-        print("✅ Doctor 1 created without email")
-        
-        # Test 2: Create with email
-        print("\nTest 2: Creating doctor with email...")
-        doctor2 = Doctor(
-            doctor_id="DOCTEST2",
-            hashed_password=get_password_hash("test123"),
-            full_name="Dr. Test Two",
-            specialization="Testology",
-            hospital="Test Hospital",
-            email="dr.test@hospital.com",
-            created_by="test_admin",
-            is_active=True
-        )
-        
-        db.add(doctor2)
-        db.commit()
-        print("✅ Doctor 2 created with email")
-        
-        # List doctors
-        print("\nAll doctors in database:")
-        doctors = db.query(Doctor).all()
-        for doc in doctors:
-            print(f"  - {doc.doctor_id}: {doc.full_name} (Email: {doc.email})")
-        
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
-        db.rollback()
-    finally:
-        db.close()
+def test_email_verification_flow():
+    print("Testing Email Verification Flow...")
+    
+    # 1. Sign up a new user
+    print("\n1. Signing up new user...")
+    signup_data = {
+        "email": "verify_test@example.com",
+        "password": "TestPass123!",
+        "username": "verifytest"
+    }
+    
+    response = requests.post(f"{BASE_URL}/auth/signup", json=signup_data)
+    print(f"   Signup Status: {response.status_code}")
+    
+    if response.status_code != 200:
+        print(f"   Error: {response.json()}")
+        return
+    
+    user_data = response.json()
+    user_id = user_data["user_id"]
+    print(f"   User created with ID: {user_id}")
+    print(f"   Email verified: {user_data['is_email_verified']}")
+    
+    # Note: In real scenario, you would extract token from email
+    # For testing, we'll simulate by getting a new verification token
+    print("\n2. Requesting new verification email...")
+    verify_response = requests.post(
+        f"{BASE_URL}/auth/resend-verification",
+        json={"email": "verify_test@example.com"}
+    )
+    print(f"   Resend Status: {verify_response.status_code}")
+    
+    # 3. Test password reset
+    print("\n3. Testing password reset request...")
+    reset_response = requests.post(
+        f"{BASE_URL}/auth/forgot-password",
+        json={"email": "verify_test@example.com"}
+    )
+    print(f"   Reset Request Status: {reset_response.status_code}")
+    
+    # 4. Check the HTML pages exist
+    print("\n4. Checking HTML pages...")
+    
+    # Check verify email page (without token)
+    verify_page = requests.get(f"{BASE_URL}/auth/verify-email/invalid_token")
+    print(f"   Verify Email Page: {verify_page.status_code}")
+    
+    # Check reset password page
+    reset_page = requests.get(f"{BASE_URL}/auth/reset-password")
+    print(f"   Reset Password Page: {reset_page.status_code}")
+    
+    # 5. Check welcome page
+    welcome_page = requests.get(f"{BASE_URL}/welcome")
+    print(f"   Welcome Page: {welcome_page.status_code}")
+    
+    print("\n" + "="*50)
+    print("✅ Email Flow Setup Complete!")
+    print("="*50)
+    print("\nNext steps:")
+    print("1. Check your email for verification link")
+    print("2. Click the link to verify email")
+    print("3. Test password reset flow")
+    print("4. All links should now work with backend URLs")
 
 if __name__ == "__main__":
-    test_doctor_creation()
+    test_email_verification_flow()

@@ -8,7 +8,10 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.caregiver import Doctor
-from app.models.admin import Admin  # Make sure this import exists
+from app.models.admin import Admin
+
+# Import password functions from hashing
+from app.auth.hashing import verify_password, get_password_hash
 
 security_scheme = HTTPBearer(auto_error=False)
 
@@ -123,3 +126,16 @@ async def get_current_active_admin(current_admin: Admin = Depends(get_current_ad
     if not current_admin.is_active:
         raise HTTPException(status_code=400, detail="Inactive admin")
     return current_admin
+
+# Export password functions
+__all__ = [
+    'create_access_token',
+    'get_current_user',
+    'get_current_doctor', 
+    'get_current_admin',
+    'get_current_active_user',
+    'get_current_active_doctor',
+    'get_current_active_admin',
+    'verify_password',
+    'get_password_hash'
+]

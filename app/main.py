@@ -5,6 +5,7 @@ import os
 import logging
 from app.database import create_tables, engine
 from app.config import settings
+from fastapi.responses import HTMLResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -154,3 +155,142 @@ async def debug_routes():
                 "name": route.name if hasattr(route, 'name') else None
             })
     return {"routes": routes}
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/verify-email/{token}", include_in_schema=False)
+async def redirect_verify_email(token: str):
+    """Redirect old verification links to new endpoint"""
+    return RedirectResponse(url=f"/auth/verify-email/{token}")
+
+@app.get("/reset-password", include_in_schema=False)
+async def redirect_reset_password(token: str = None):
+    """Redirect old reset password links to new endpoint"""
+    if token:
+        return RedirectResponse(url=f"/auth/reset-password?token={token}")
+    return RedirectResponse(url="/auth/reset-password")
+
+@app.get("/welcome", response_class=HTMLResponse)
+async def welcome_page():
+    """Welcome page for new users"""
+    return """
+    <html>
+        <head>
+            <title>HEWAL3 Health System</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .logo { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
+                .button { 
+                    display: inline-block; 
+                    padding: 12px 24px; 
+                    margin: 10px;
+                    background-color: #4CAF50; 
+                    color: white; 
+                    text-decoration: none; 
+                    border-radius: 5px; 
+                }
+                .api-button { background-color: #2196F3; }
+                .section { margin: 40px 0; padding: 20px; background: #f9f9f9; border-radius: 10px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="logo">🏥 HEWAL3</div>
+                <h1>Health Management System</h1>
+                <p>AI-powered health tracking and caregiver coordination</p>
+                
+                <div class="section">
+                    <h2>Get Started</h2>
+                    <a href="/docs" class="button api-button">API Documentation</a>
+                    <a href="/docs#/authentication/signup" class="button">Sign Up</a>
+                    <a href="/docs#/authentication/login" class="button">Login</a>
+                </div>
+                
+                <div class="section">
+                    <h2>Features</h2>
+                    <p>• Health Data Tracking • AI Food Analysis • Emergency Alerts</p>
+                    <p>• Caregiver Portal • Doctor Dashboard • Progress Monitoring</p>
+                </div>
+                
+                <div class="section">
+                    <h2>Email Verification & Password Reset</h2>
+                    <p>If you received an email verification or password reset link:</p>
+                    <p>• Click the link in your email</p>
+                    <p>• Or visit: <code>/auth/verify-email/{token}</code> or <code>/auth/reset-password?token={token}</code></p>
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+
+
+
+
+# Add these before your router includes
+# Update these redirects:
+@app.get("/verify-email/{token}", include_in_schema=False)
+async def redirect_verify_email(token: str):
+    """Redirect old verification links"""
+    return RedirectResponse(url=f"/auth/verify-email-page/{token}")
+
+@app.get("/reset-password", include_in_schema=False)
+async def redirect_reset_password(token: str = None):
+    """Redirect old reset password links"""
+    if token:
+        return RedirectResponse(url=f"/auth/reset-password-page?token={token}")
+    return RedirectResponse(url="/auth/reset-password-page")
+
+@app.get("/welcome", response_class=HTMLResponse)
+async def welcome_page():
+    """Welcome page for new users"""
+    return """
+    <html>
+        <head>
+            <title>HEWAL3 Health System</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .logo { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
+                .button { 
+                    display: inline-block; 
+                    padding: 12px 24px; 
+                    margin: 10px;
+                    background-color: #4CAF50; 
+                    color: white; 
+                    text-decoration: none; 
+                    border-radius: 5px; 
+                }
+                .api-button { background-color: #2196F3; }
+                .section { margin: 40px 0; padding: 20px; background: #f9f9f9; border-radius: 10px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="logo">HEWAL3</div>
+                <h1>Health Management System</h1>
+                <p>AI-powered health tracking and caregiver coordination</p>
+                
+                <div class="section">
+                    <h2>Get Started</h2>
+                    <a href="/docs" class="button api-button">API Documentation</a>
+                    <a href="/docs#/authentication/signup" class="button">Sign Up</a>
+                    <a href="/docs#/authentication/login" class="button">Login</a>
+                </div>
+                
+                <div class="section">
+                    <h2>Features</h2>
+                    <p>• Health Data Tracking • AI Food Analysis • Emergency Alerts</p>
+                    <p>• Caregiver Portal • Doctor Dashboard • Progress Monitoring</p>
+                </div>
+                
+                <div class="section">
+                    <h2>Email Verification & Password Reset</h2>
+                    <p>If you received an email verification or password reset link:</p>
+                    <p>• Click the link in your email</p>
+                    <p>• Or visit: <code>/auth/verify-email-page/{token}</code> or <code>/auth/reset-password-page?token={token}</code></p>
+                </div>
+            </div>
+        </body>
+    </html>
+    """
