@@ -66,20 +66,18 @@ def get_db():
 
 def create_tables():
     try:
-        # Import all models here to ensure they're registered with Base
-        from app.models.user import User, UserProfile, UserDevice
-        from app.models.health import HealthData, FoodLog, WeeklyProgress, HealthInsight
-        from app.models.notification import Notification
-        from app.models.caregiver import CaregiverRelationship, Doctor
-        from app.models.emergency import EmergencyContact, EmergencyEvent
-        from app.models.iot_device import IoTDevice, VitalReading
+        # Force drop and recreate in development
+        if settings.ENVIRONMENT == "development":
+            logger.info("Development environment - forcing table recreation...")
+            try:
+                Base.metadata.drop_all(bind=engine)
+                logger.info("Dropped existing tables")
+            except:
+                pass
         
-        logger.info("Creating database tables...")
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database tables created/verified")
         
     except Exception as e:
-        logger.error(f"❌ Error creating tables: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"Error creating tables: {e}")
         raise
