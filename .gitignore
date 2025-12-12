@@ -61,4 +61,14 @@ logs/
 *.temp
 
 # Uploads
-uploads/
+uploads/.env
+check_admin.py
+test_*.py
+*.db
+__pycache__/
+.venv/
+"check_admin.py" 
+"*.pyc" 
+"__pycache__/" 
+".venv/" 
+".env" 
