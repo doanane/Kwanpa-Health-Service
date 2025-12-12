@@ -1,4 +1,3 @@
-# app/config.py
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -7,7 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseModel):
-    # Add these to your Settings class in app/config.py
+    
+    INFOBIP_API_KEY: str = os.getenv("INFOBIP_API_KEY", "")
+    INFOBIP_BASE_URL: str = os.getenv("INFOBIP_BASE_URL", "")
+    INFOBIP_SENDER_ID: str = os.getenv("INFOBIP_SENDER_ID", "HEWAL3")
+
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     API_PREFIX: str = os.getenv("API_PREFIX", "")

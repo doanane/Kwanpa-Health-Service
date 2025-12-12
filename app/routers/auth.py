@@ -861,40 +861,46 @@ async def request_otp_login(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """Request OTP for login"""
+    """Request OTP for login - EMAIL ONLY VERSION"""
     user = db.query(User).filter(User.email == request_data.email).first()
     
-    if user and user.phone_number:
-        # Generate OTP
-        otp = generate_otp()
-        expires_at = datetime.utcnow() + timedelta(minutes=10)
-        
-        # Invalidate old OTPs
-        db.query(LoginOTP).filter(
-            LoginOTP.email == request_data.email,
-            LoginOTP.is_used == False
-        ).update({"is_used": True})
-        
-        # Create new OTP
-        login_otp = LoginOTP(
-            email=request_data.email,
-            otp=otp,
-            expires_at=expires_at
-        )
-        
-        db.add(login_otp)
-        db.commit()
-        
-        # Send OTP via SMS
-        if sms_service.send_otp_sms(user.phone_number, otp):
-            return {"message": "OTP sent to your phone"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send OTP"
-            )
+    if not user:
+        # For security, don't reveal if user exists
+        return {"message": "If your account exists, OTP will be sent to your email"}
     
-    return {"message": "If your account exists with a phone number, OTP will be sent"}
+    # Generate OTP
+    otp = generate_otp()
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    
+    # Invalidate old OTPs
+    db.query(LoginOTP).filter(
+        LoginOTP.email == request_data.email,
+        LoginOTP.is_used == False
+    ).update({"is_used": True})
+    
+    # Create new OTP
+    login_otp = LoginOTP(
+        email=request_data.email,
+        otp=otp,
+        expires_at=expires_at
+    )
+    
+    db.add(login_otp)
+    db.commit()
+    
+    # Send OTP via EMAIL only (no SMS)
+    background_tasks.add_task(
+        email_service.send_otp_email,  # We'll create this function
+        user.email,
+        user.username or user.email.split('@')[0],
+        otp
+    )
+    
+    return {
+        "message": "OTP sent to your email address",
+        "delivery_method": "email",
+        "email": user.email[:3] + "***" + user.email.split('@')[1]  # Mask email
+    }
 
 @router.post("/login/otp/verify")
 async def verify_otp_login(
@@ -902,7 +908,7 @@ async def verify_otp_login(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Verify OTP for login"""
+    """Verify OTP for login - EMAIL ONLY"""
     login_otp = db.query(LoginOTP).filter(
         LoginOTP.email == request_data.email,
         LoginOTP.otp == request_data.otp,
@@ -954,14 +960,16 @@ async def verify_otp_login(
     db.add(session)
     db.commit()
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user_type="user",
-        user_id=user.id,
-        email=user.email,
-        is_email_verified=user.is_email_verified
-    )
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user_type": "user",
+        "user_id": user.id,
+        "email": user.email,
+        "is_email_verified": user.is_email_verified,
+        "message": "Login successful via email OTP"
+    }
 
 @router.post("/change-password")
 async def change_password(
