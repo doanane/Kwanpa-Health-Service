@@ -64,19 +64,19 @@ def get_db():
     finally:
         db.close()
 
-def create_tables():
+def create_tables(preserve_data: bool = True):
+    """Create database tables with option to preserve data"""
     try:
-        # Force drop and recreate in development
-        if settings.ENVIRONMENT == "development":
-            logger.info("Development environment - forcing table recreation...")
-            try:
-                Base.metadata.drop_all(bind=engine)
-                logger.info("Dropped existing tables")
-            except:
-                pass
+        if not preserve_data and settings.ENVIRONMENT == "development":
+            logger.warning("⚠️ Dropping tables (data will be lost!)")
+            Base.metadata.drop_all(bind=engine)
         
         Base.metadata.create_all(bind=engine)
-        logger.info("✅ Database tables created/verified")
+        
+        if preserve_data:
+            logger.info("✅ Database tables verified - existing data preserved")
+        else:
+            logger.info("✅ Database tables recreated - all data cleared")
         
     except Exception as e:
         logger.error(f"Error creating tables: {e}")
