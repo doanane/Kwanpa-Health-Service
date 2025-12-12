@@ -115,6 +115,91 @@ class EmailService:
         """
         
         return self.send_email(user_email, "Verify Your HEWAL3 Account", html_content, text_content)
+
+
+    def send_otp_email(self, user_email: str, user_name: str, otp: str):
+        """Send OTP code via email"""
+        subject = f"Your HEWAL3 Verification Code: {otp}"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 30px; background-color: #f9f9f9; }}
+                .otp-box {{ 
+                    font-size: 32px; 
+                    font-weight: bold; 
+                    text-align: center; 
+                    padding: 20px; 
+                    background: white; 
+                    border: 3px dashed #4CAF50; 
+                    margin: 20px 0; 
+                    letter-spacing: 5px;
+                }}
+                .button {{ 
+                    display: inline-block; 
+                    padding: 12px 24px; 
+                    background-color: #4CAF50; 
+                    color: white; 
+                    text-decoration: none; 
+                    border-radius: 5px; 
+                    margin: 20px 0; 
+                }}
+                .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>HEWAL3 Login Verification</h1>
+                </div>
+                <div class="content">
+                    <h2>Hello {user_name},</h2>
+                    <p>You requested a login verification code for your HEWAL3 account.</p>
+                    
+                    <div class="otp-box">
+                        {otp}
+                    </div>
+                    
+                    <p><strong>This code will expire in 10 minutes.</strong></p>
+                    
+                    <p>Enter this code in the HEWAL3 app to complete your login.</p>
+                    
+                    <p>If you didn't request this code, please ignore this email or contact support if you're concerned about your account security.</p>
+                </div>
+                <div class="footer">
+                    <p>© 2025 HEWAL3 Health System. All rights reserved.</p>
+                    <p>For support, contact: {self.support_email}</p>
+                    <p>This is an automated message. Please do not reply.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+        HEWAL3 Login Verification
+        
+        Hello {user_name},
+        
+        You requested a login verification code for your HEWAL3 account.
+        
+        Your verification code is: {otp}
+        
+        This code will expire in 10 minutes.
+        
+        Enter this code in the HEWAL3 app to complete your login.
+        
+        If you didn't request this code, please ignore this email.
+        
+        © 2025 HEWAL3 Health System
+        """
+        
+        return self.send_email(user_email, subject, html_content, text_content)
     
     def send_password_reset_email(self, user_email: str, reset_token: str):
         """Send password reset email"""
