@@ -199,25 +199,7 @@ try:
 except ImportError as e:
     logger.warning(f"Food Analysis router not loaded: {e}")
 
-@app.get("/debug/google-setup")
-async def debug_google_setup():
-    """Debug Google OAuth setup"""
-    import os
-    return {
-        "GOOGLE_CLIENT_ID": os.getenv("GOOGLE_CLIENT_ID", "NOT SET"),
-        "GOOGLE_CLIENT_SECRET": "SET" if os.getenv("GOOGLE_CLIENT_SECRET") else "NOT SET",
-        "BASE_URL": os.getenv("BASE_URL", "NOT SET"),
-        "FRONTEND_URL": os.getenv("FRONTEND_URL", "NOT SET"),
-        "Expected Redirect URI": f"{os.getenv('BASE_URL', 'http://localhost:8000')}/auth/google/callback",
-        "Instructions": [
-            "1. Make sure this redirect URI is in Google Console:",
-            f"   {os.getenv('BASE_URL', 'http://localhost:8000')}/auth/google/callback",
-            "2. Wait 5 minutes after updating Google Console",
-            "3. Clear browser cache",
-            "4. Test with: /auth/google/login"
-        ]
-    }
-    
+
 @app.get("/")
 async def root():
     try:
@@ -266,20 +248,6 @@ async def health_check():
         "database": db_status,
         "environment": settings.ENVIRONMENT
     }
-
-
-@app.get("/debug/routes")
-async def debug_routes():
-    routes = []
-    for route in app.routes:
-        if hasattr(route, 'methods'):
-            routes.append({
-                "path": route.path,
-                "methods": list(route.methods),
-                "name": route.name if hasattr(route, 'name') else None
-            })
-    return {"routes": routes}
-
 
 
 @app.get("/verify-email/{token}", include_in_schema=False)
