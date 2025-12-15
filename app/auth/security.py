@@ -10,10 +10,34 @@ from app.models.user import User
 from app.models.caregiver import Doctor
 from app.models.admin import Admin
 
-# Import password functions from hashing
+
+import re
+from datetime import datetime, timedelta
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import HTTPException, status
 from app.auth.hashing import verify_password, get_password_hash
 
 security_scheme = HTTPBearer(auto_error=False)
+
+
+def validate_password_strength(password: str) -> bool:
+    """Enforce strong password policy"""
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"\d", password):
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False
+    return True
+
+def check_password_history(user_id: int, new_password: str, db: Session) -> bool:
+    """Check if password was used before"""
+    # In production, store password history
+    return True  # For hackathon, skip this
 
 def create_access_token(data: dict, user_type: str, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
