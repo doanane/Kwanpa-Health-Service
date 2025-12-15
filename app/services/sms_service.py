@@ -75,6 +75,6 @@ HEWAL3 Health System"""
         
         return self.send_sms(to_phone, message)
 
-# ⚠️ CRITICAL: This line MUST be at the bottom of the file
-# This creates the singleton instance that other files import
+
+
 sms_service = SMSService()

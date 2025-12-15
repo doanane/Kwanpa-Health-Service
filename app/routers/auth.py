@@ -22,7 +22,7 @@ import os
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
-# Pydantic Models
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
@@ -63,7 +63,7 @@ class TokenResponse(BaseModel):
     email: str
     is_email_verified: bool
 
-# Helper Functions
+
 def generate_otp(length=6):
     """Generate numeric OTP"""
     return ''.join(secrets.choice(string.digits) for _ in range(length))
@@ -87,14 +87,14 @@ def create_refresh_token(user_id: int, db: Session):
     db.commit()
     return token
 
-# Endpoints
+
 @router.get("/verify-email/{token}", response_class=HTMLResponse)
 async def verify_email_page(
     token: str,
     db: Session = Depends(get_db)
 ):
     """HTML page to verify email (for direct links from emails)"""
-    # Import models
+    
     from app.models.auth import EmailVerificationToken
     from app.models.user import User
     
@@ -120,7 +120,7 @@ async def verify_email_page(
                     <h1 class="error">Email Verification Failed</h1>
                     <p>The verification link is invalid or has expired.</p>
                     <p>Please request a new verification email.</p>
-                    <p><a href="/docs#/authentication/resend_verification">Request New Verification Email</a></p>
+                    <p><a href="/docs
                 </div>
             </body>
         </html>
@@ -136,7 +136,7 @@ async def verify_email_page(
         </html>
         """)
     
-    # Verify the email
+    
     user.is_email_verified = True
     db.delete(verification_token)
     db.commit()
@@ -152,7 +152,7 @@ async def verify_email_page(
                 .button {{ 
                     display: inline-block; 
                     padding: 12px 24px; 
-                    background-color: #4CAF50; 
+                    background-color: 
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
@@ -165,7 +165,7 @@ async def verify_email_page(
                 <h1 class="success">Email Verified Successfully!</h1>
                 <p>Your email has been verified. You can now log in to your account.</p>
                 <p><strong>Email:</strong> {user.email}</p>
-                <a href="/docs#/authentication/login" class="button">Go to Login</a>
+                <a href="/docs
                 <p>Or use the API documentation to make login requests.</p>
             </div>
         </body>
@@ -178,12 +178,12 @@ async def reset_password_page(
     db: Session = Depends(get_db)
 ):
     """HTML page to reset password (for direct links from emails)"""
-    # Import models
+    
     from app.models.auth import PasswordResetToken
     from app.models.user import User
     
     if not token:
-        # Show form to enter token
+        
         return HTMLResponse(content="""
         <html>
             <head>
@@ -193,7 +193,7 @@ async def reset_password_page(
                     .form-group { margin-bottom: 20px; }
                     label { display: block; margin-bottom: 5px; }
                     input { width: 100%; padding: 10px; box-sizing: border-box; }
-                    button { padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+                    button { padding: 12px 24px; background-color: 
                     .error { color: red; }
                     .success { color: green; }
                 </style>
@@ -230,7 +230,7 @@ async def reset_password_page(
                         
                         if (response.ok) {
                             messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
-                            messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                            messageDiv.innerHTML += '<p>You can now <a href="/docs
                         } else {
                             messageDiv.innerHTML = '<p class="error">' + (result.detail || 'Error resetting password') + '</p>';
                         }
@@ -240,7 +240,7 @@ async def reset_password_page(
         </html>
         """)
     
-    # Check if token is valid
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
         PasswordResetToken.is_used == False,
@@ -254,12 +254,12 @@ async def reset_password_page(
                 <h1 class="error">Invalid or Expired Token</h1>
                 <p>The password reset token is invalid or has expired.</p>
                 <p>Please request a new password reset.</p>
-                <p><a href="/docs#/authentication/forgot_password">Request New Password Reset</a></p>
+                <p><a href="/docs
             </body>
         </html>
         """)
     
-    # Show form with pre-filled token
+    
     return HTMLResponse(content=f"""
     <html>
         <head>
@@ -269,7 +269,7 @@ async def reset_password_page(
                 .form-group {{ margin-bottom: 20px; }}
                 label {{ display: block; margin-bottom: 5px; }}
                 input {{ width: 100%; padding: 10px; box-sizing: border-box; }}
-                button {{ padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }}
+                button {{ padding: 12px 24px; background-color: 
                 .error {{ color: red; }}
                 .success {{ color: green; }}
             </style>
@@ -313,7 +313,7 @@ async def reset_password_page(
                     
                     if (response.ok) {{
                         messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
-                        messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                        messageDiv.innerHTML += '<p>You can now <a href="/docs
                     }} else {{
                         messageDiv.innerHTML = '<p class="error">' + (result.detail || 'Error resetting password') + '</p>';
                     }}
@@ -380,7 +380,7 @@ async def verify_email_page(
                 .button { 
                     display: inline-block; 
                     padding: 12px 24px; 
-                    background-color: #4CAF50; 
+                    background-color: 
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
@@ -393,7 +393,7 @@ async def verify_email_page(
                 <h1 class="success">✅ Email Verified Successfully!</h1>
                 <p>Your email has been verified. You can now log in to your account.</p>
                 <p><strong>Email:</strong> {email}</p>
-                <a href="/docs#/authentication/login" class="button">Go to Login</a>
+                <a href="/docs
                 <p>Or use the API documentation to make login requests.</p>
             </div>
         </body>
@@ -416,7 +416,7 @@ async def reset_password_page(
                     .form-group { margin-bottom: 20px; }
                     label { display: block; margin-bottom: 5px; }
                     input { width: 100%; padding: 10px; box-sizing: border-box; }
-                    button { padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+                    button { padding: 12px 24px; background-color: 
                     .error { color: red; }
                     .success { color: green; }
                 </style>
@@ -453,7 +453,7 @@ async def reset_password_page(
                         
                         if (response.ok) {
                             messageDiv.innerHTML = `<p class="success">✅ ${result.message}</p>`;
-                            messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                            messageDiv.innerHTML += '<p>You can now <a href="/docs
                         } else {
                             messageDiv.innerHTML = `<p class="error">❌ ${result.detail || 'Error resetting password'}</p>`;
                         }
@@ -463,7 +463,7 @@ async def reset_password_page(
         </html>
         """
     
-    # Check if token is valid
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
         PasswordResetToken.is_used == False,
@@ -481,7 +481,7 @@ async def reset_password_page(
         </html>
         """
     
-    # Show form with pre-filled token
+    
     return f"""
     <html>
         <head>
@@ -491,7 +491,7 @@ async def reset_password_page(
                 .form-group {{ margin-bottom: 20px; }}
                 label {{ display: block; margin-bottom: 5px; }}
                 input {{ width: 100%; padding: 10px; box-sizing: border-box; }}
-                button {{ padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }}
+                button {{ padding: 12px 24px; background-color: 
                 .error {{ color: red; }}
                 .success {{ color: green; }}
             </style>
@@ -535,7 +535,7 @@ async def reset_password_page(
                     
                     if (response.ok) {{
                         messageDiv.innerHTML = `<p class="success">✅ ${{result.message}}</p>`;
-                        messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                        messageDiv.innerHTML += '<p>You can now <a href="/docs
                     }} else {{
                         messageDiv.innerHTML = `<p class="error">❌ ${{result.detail || 'Error resetting password'}}</p>`;
                     }}
@@ -552,7 +552,7 @@ async def signup(
     db: Session = Depends(get_db)
 ):
     """Register a new patient user"""
-    # Check if user exists
+    
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -568,7 +568,7 @@ async def signup(
                 detail="Username already taken"
             )
     
-    # Create user
+    
     hashed_password = get_pass_hash(user_data.password)
     user = User(
         email=user_data.email,
@@ -582,7 +582,7 @@ async def signup(
     db.commit()
     db.refresh(user)
     
-    # Generate email verification token
+    
     verification_token = generate_token()
     expires_at = datetime.utcnow() + timedelta(hours=24)
     
@@ -595,7 +595,7 @@ async def signup(
     db.add(verification)
     db.commit()
     
-    # Send verification email in background
+    
     background_tasks.add_task(
         email_service.send_welcome_email,
         user.email,
@@ -603,7 +603,7 @@ async def signup(
         verification_token
     )
     
-    # Create tokens
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -611,7 +611,7 @@ async def signup(
     
     refresh_token = create_refresh_token(user.id, db)
     
-    # Create session
+    
     session_token = generate_token()
     session = UserSession(
         user_id=user.id,
@@ -658,11 +658,11 @@ async def login(
             detail="Account is deactivated"
         )
     
-    # Update last login
+    
     user.last_login = datetime.utcnow()
     db.commit()
     
-    # Create tokens
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -670,7 +670,7 @@ async def login(
     
     refresh_token = create_refresh_token(user.id, db)
     
-    # Create session
+    
     session_token = generate_token()
     device_info = request.headers.get("User-Agent", "Unknown")
     ip_address = request.client.host if request.client else "Unknown"
@@ -705,17 +705,17 @@ async def forgot_password(
     user = db.query(User).filter(User.email == request_data.email).first()
     
     if user:
-        # Generate reset token
+        
         reset_token = generate_token()
         expires_at = datetime.utcnow() + timedelta(hours=1)
         
-        # Invalidate existing tokens
+        
         db.query(PasswordResetToken).filter(
             PasswordResetToken.email == request_data.email,
             PasswordResetToken.is_used == False
         ).update({"is_used": True})
         
-        # Create new token
+        
         reset_token_obj = PasswordResetToken(
             email=request_data.email,
             token=reset_token,
@@ -725,14 +725,14 @@ async def forgot_password(
         db.add(reset_token_obj)
         db.commit()
         
-        # Send reset email in background
+        
         background_tasks.add_task(
             email_service.send_password_reset_email,
             request_data.email,
             reset_token
         )
     
-    # Always return success (security through obscurity)
+    
     return {"message": "If your email exists, you will receive a password reset link"}
 
 @router.post("/reset-password")
@@ -741,7 +741,7 @@ async def reset_password(
     db: Session = Depends(get_db)
 ):
     """Reset password with token"""
-    # Find valid token
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == request_data.token,
         PasswordResetToken.is_used == False,
@@ -754,7 +754,7 @@ async def reset_password(
             detail="Invalid or expired reset token"
         )
     
-    # Find user
+    
     user = db.query(User).filter(User.email == reset_token.email).first()
     if not user:
         raise HTTPException(
@@ -762,14 +762,14 @@ async def reset_password(
             detail="User not found"
         )
     
-    # Update password
+    
     user.hashed_password = get_pass_hash(request_data.new_password)
     reset_token.is_used = True
     
-    # Invalidate all refresh tokens
+    
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
     
-    # Invalidate all sessions
+    
     db.query(UserSession).filter(UserSession.user_id == user.id).update({"is_active": False})
     
     db.commit()
@@ -827,12 +827,12 @@ async def resend_verification(
             detail="Email already verified"
         )
     
-    # Delete old verification tokens
+    
     db.query(EmailVerificationToken).filter(
         EmailVerificationToken.user_id == user.id
     ).delete()
     
-    # Create new verification token
+    
     verification_token = generate_token()
     expires_at = datetime.utcnow() + timedelta(hours=24)
     
@@ -845,7 +845,7 @@ async def resend_verification(
     db.add(verification)
     db.commit()
     
-    # Send verification email in background
+    
     background_tasks.add_task(
         email_service.send_welcome_email,
         user.email,
@@ -865,20 +865,20 @@ async def request_otp_login(
     user = db.query(User).filter(User.email == request_data.email).first()
     
     if not user:
-        # For security, don't reveal if user exists
+        
         return {"message": "If your account exists, OTP will be sent to your email"}
     
-    # Generate OTP
+    
     otp = generate_otp()
     expires_at = datetime.utcnow() + timedelta(minutes=10)
     
-    # Invalidate old OTPs
+    
     db.query(LoginOTP).filter(
         LoginOTP.email == request_data.email,
         LoginOTP.is_used == False
     ).update({"is_used": True})
     
-    # Create new OTP
+    
     login_otp = LoginOTP(
         email=request_data.email,
         otp=otp,
@@ -888,9 +888,9 @@ async def request_otp_login(
     db.add(login_otp)
     db.commit()
     
-    # Send OTP via EMAIL only (no SMS)
+    
     background_tasks.add_task(
-        email_service.send_otp_email,  # We'll create this function
+        email_service.send_otp_email,  
         user.email,
         user.username or user.email.split('@')[0],
         otp
@@ -899,7 +899,7 @@ async def request_otp_login(
     return {
         "message": "OTP sent to your email address",
         "delivery_method": "email",
-        "email": user.email[:3] + "***" + user.email.split('@')[1]  # Mask email
+        "email": user.email[:3] + "***" + user.email.split('@')[1]  
     }
 
 @router.post("/login/otp/verify")
@@ -929,14 +929,14 @@ async def verify_otp_login(
             detail="User not found"
         )
     
-    # Mark OTP as used
+    
     login_otp.is_used = True
     
-    # Update last login
+    
     user.last_login = datetime.utcnow()
     db.commit()
     
-    # Create tokens
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -944,7 +944,7 @@ async def verify_otp_login(
     
     refresh_token = create_refresh_token(user.id, db)
     
-    # Create session
+    
     session_token = generate_token()
     device_info = request.headers.get("User-Agent", "Unknown")
     ip_address = request.client.host if request.client else "Unknown"
@@ -986,7 +986,7 @@ async def change_password(
     
     current_user.hashed_password = get_pass_hash(request_data.new_password)
     
-    # Invalidate all refresh tokens
+    
     db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).update({"is_revoked": True})
     
     db.commit()
@@ -1018,7 +1018,7 @@ async def refresh_token(
             detail="User not found or inactive"
         )
     
-    # Create new access token
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -1036,10 +1036,10 @@ async def logout(
     db: Session = Depends(get_db)
 ):
     """Logout user (revoke refresh tokens)"""
-    # Revoke all refresh tokens
+    
     db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).update({"is_revoked": True})
     
-    # Mark all sessions as inactive
+    
     db.query(UserSession).filter(UserSession.user_id == current_user.id).update({"is_active": False})
     
     db.commit()
@@ -1087,17 +1087,17 @@ async def get_user_sessions(
         for session in sessions
     ]
 
-# Add these imports at the top of app/routers/auth.py
+
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-# Add these endpoints to your router
+
 @router.get("/verify-email-page/{token}", response_class=HTMLResponse)
 async def verify_email_page(
     token: str,
     db: Session = Depends(get_db)
 ):
     """HTML page to verify email (for direct links from emails)"""
-    # Import models
+    
     from app.models.auth import EmailVerificationToken
     from app.models.user import User
     
@@ -1123,7 +1123,7 @@ async def verify_email_page(
                     <h1 class="error">Email Verification Failed</h1>
                     <p>The verification link is invalid or has expired.</p>
                     <p>Please request a new verification email.</p>
-                    <p><a href="/docs#/authentication/resend_verification">Request New Verification Email</a></p>
+                    <p><a href="/docs
                 </div>
             </body>
         </html>
@@ -1139,7 +1139,7 @@ async def verify_email_page(
         </html>
         """)
     
-    # Verify the email
+    
     user.is_email_verified = True
     db.delete(verification_token)
     db.commit()
@@ -1155,7 +1155,7 @@ async def verify_email_page(
                 .button {{ 
                     display: inline-block; 
                     padding: 12px 24px; 
-                    background-color: #4CAF50; 
+                    background-color: 
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
@@ -1168,7 +1168,7 @@ async def verify_email_page(
                 <h1 class="success">Email Verified Successfully!</h1>
                 <p>Your email has been verified. You can now log in to your account.</p>
                 <p><strong>Email:</strong> {user.email}</p>
-                <a href="/docs#/authentication/login" class="button">Go to Login</a>
+                <a href="/docs
                 <p>Or use the API documentation to make login requests.</p>
             </div>
         </body>
@@ -1181,12 +1181,12 @@ async def reset_password_page(
     db: Session = Depends(get_db)
 ):
     """HTML page to reset password (for direct links from emails)"""
-    # Import models
+    
     from app.models.auth import PasswordResetToken
     from app.models.user import User
     
     if not token:
-        # Show form to enter token
+        
         return HTMLResponse(content="""
         <html>
             <head>
@@ -1196,7 +1196,7 @@ async def reset_password_page(
                     .form-group { margin-bottom: 20px; }
                     label { display: block; margin-bottom: 5px; }
                     input { width: 100%; padding: 10px; box-sizing: border-box; }
-                    button { padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+                    button { padding: 12px 24px; background-color: 
                     .error { color: red; }
                     .success { color: green; }
                 </style>
@@ -1233,7 +1233,7 @@ async def reset_password_page(
                         
                         if (response.ok) {
                             messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
-                            messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                            messageDiv.innerHTML += '<p>You can now <a href="/docs
                         } else {
                             messageDiv.innerHTML = '<p class="error">' + (result.detail || 'Error resetting password') + '</p>';
                         }
@@ -1243,7 +1243,7 @@ async def reset_password_page(
         </html>
         """)
     
-    # Check if token is valid
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
         PasswordResetToken.is_used == False,
@@ -1257,12 +1257,12 @@ async def reset_password_page(
                 <h1 class="error">Invalid or Expired Token</h1>
                 <p>The password reset token is invalid or has expired.</p>
                 <p>Please request a new password reset.</p>
-                <p><a href="/docs#/authentication/forgot_password">Request New Password Reset</a></p>
+                <p><a href="/docs
             </body>
         </html>
         """)
     
-    # Show form with pre-filled token
+    
     return HTMLResponse(content=f"""
     <html>
         <head>
@@ -1272,7 +1272,7 @@ async def reset_password_page(
                 .form-group {{ margin-bottom: 20px; }}
                 label {{ display: block; margin-bottom: 5px; }}
                 input {{ width: 100%; padding: 10px; box-sizing: border-box; }}
-                button {{ padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }}
+                button {{ padding: 12px 24px; background-color: 
                 .error {{ color: red; }}
                 .success {{ color: green; }}
             </style>
@@ -1316,7 +1316,7 @@ async def reset_password_page(
                     
                     if (response.ok) {{
                         messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
-                        messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
+                        messageDiv.innerHTML += '<p>You can now <a href="/docs
                     }} else {{
                         messageDiv.innerHTML = '<p class="error">' + (result.detail || 'Error resetting password') + '</p>';
                     }}

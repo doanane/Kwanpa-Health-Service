@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 router = APIRouter(prefix="/superadmin", tags=["superadmin"])
 
-# Pydantic models
+
 class AdminLoginRequest(BaseModel):
     email: EmailStr = Field(..., example="superadmin@hewal3.com")
     password: str = Field(..., example="Admin@123")
@@ -40,11 +40,11 @@ async def admin_login(
     print(f"DEBUG: Found admin - ID: {admin.id}, Email: {admin.email}")
     print(f"DEBUG: Hashed password exists: {bool(admin.hashed_password)}")
     
-    # Debug: Show first few chars of hash
+    
     if admin.hashed_password:
         print(f"DEBUG: Hash (first 30 chars): {admin.hashed_password[:30]}...")
     
-    # Test password directly
+    
     print(f"DEBUG: Testing password: {request.password}")
     from app.auth.hashing import get_password_hash
     test_hash = get_password_hash(request.password)
@@ -68,7 +68,7 @@ async def admin_login(
             detail="Admin account is deactivated"
         )
     
-    # Update last login time
+    
     admin.last_login = datetime.now()
     db.commit()
     
@@ -96,7 +96,7 @@ async def test_superadmin():
     """Test endpoint to verify superadmin router is working"""
     return {"message": "Superadmin router is working!"}
 
-# Add a debug endpoint to check admin data
+
 @router.get("/debug")
 async def debug_admin_data(db: Session = Depends(get_db)):
     """Debug endpoint to see what's in the admin table"""

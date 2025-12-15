@@ -15,7 +15,7 @@ class AzureAIService:
         self.vision_client = None
         self.openai_client = None
         
-        # Initialize Azure Computer Vision
+        
         if settings.AZURE_AI_VISION_ENDPOINT and settings.AZURE_AI_VISION_KEY:
             try:
                 credentials = CognitiveServicesCredentials(settings.AZURE_AI_VISION_KEY)
@@ -29,7 +29,7 @@ class AzureAIService:
         else:
             logger.warning("Azure Vision credentials not configured")
         
-        # Initialize Azure OpenAI
+        
         if settings.AZURE_OPENAI_ENDPOINT and settings.AZURE_OPENAI_KEY:
             try:
                 self.openai_client = AzureOpenAI(
@@ -53,7 +53,7 @@ class AzureAIService:
             with open(image_path, "rb") as image_file:
                 image_data = image_file.read()
             
-            # Analyze image
+            
             analysis_result = self.vision_client.analyze_image_in_stream(
                 image_data,
                 visual_features=[
@@ -63,16 +63,16 @@ class AzureAIService:
                 ]
             )
             
-            # Extract food-related tags
+            
             food_tags = []
             for tag in analysis_result.tags:
-                if tag.confidence > 0.7:  # Only high confidence tags
+                if tag.confidence > 0.7:  
                     food_tags.append(tag.name.lower())
             
-            # Get description
+            
             description = analysis_result.description.captions[0].text if analysis_result.description.captions else ""
             
-            # Ghanaian food database
+            
             ghanaian_foods = {
                 "fufu": {"calories": 250, "carbs": 60, "protein": 5, "fat": 1, "type": "starch"},
                 "banku": {"calories": 280, "carbs": 65, "protein": 6, "fat": 2, "type": "starch"},
@@ -85,7 +85,7 @@ class AzureAIService:
                 "red red": {"calories": 300, "carbs": 40, "protein": 12, "fat": 10, "type": "legume"},
             }
             
-            # Match detected food with Ghanaian foods
+            
             detected_food = None
             nutrients = None
             
@@ -96,7 +96,7 @@ class AzureAIService:
                     break
             
             if not detected_food and food_tags:
-                # Try to match with tags
+                
                 for tag in food_tags:
                     for food_name in ghanaian_foods.keys():
                         if tag in food_name or food_name in tag:
@@ -149,7 +149,7 @@ class AzureAIService:
             """
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4",  # or your deployment name
+                model="gpt-4",  
                 messages=[
                     {"role": "system", "content": "You are a helpful Ghanaian health assistant."},
                     {"role": "user", "content": prompt}
@@ -188,5 +188,5 @@ class AzureAIService:
         else:
             return "Your meal looks balanced. Remember to drink plenty of water and take your medications as prescribed."
 
-# Singleton instance
+
 azure_ai_service = AzureAIService()

@@ -10,7 +10,7 @@ from app.models.caregiver import Doctor
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-# Ensure upload directory exists
+
 os.makedirs("uploads", exist_ok=True)
 
 @router.post("/complete-profile", response_model=UserProfileResponse)
@@ -19,14 +19,14 @@ async def complete_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Check if profile already exists
+    
     existing_profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     
-    # Calculate BMI
-    height_m = profile_data.height / 100  # convert cm to meters
+    
+    height_m = profile_data.height / 100  
     bmi = int(profile_data.weight / (height_m * height_m))
     
-    # IMPORTANT: Check if doctor exists
+    
     doctor = db.query(Doctor).filter(
         Doctor.doctor_id == profile_data.doctor_id,
         Doctor.is_active == True
@@ -39,13 +39,13 @@ async def complete_profile(
         )
     
     if existing_profile:
-        # Update existing profile
+        
         for field, value in profile_data.dict().items():
             setattr(existing_profile, field, value)
         existing_profile.bmi = bmi
         existing_profile.profile_completed = True
     else:
-        # Create new profile
+        
         existing_profile = UserProfile(
             user_id=current_user.id, 
             **profile_data.dict(),
@@ -77,7 +77,7 @@ async def link_device(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Check if device already linked
+    
     existing_device = db.query(UserDevice).filter(
         UserDevice.user_id == current_user.id,
         UserDevice.device_id == device_data.device_id
@@ -129,19 +129,19 @@ async def upload_profile_image(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Validate file type
+    
     if not file.content_type.startswith('image/'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only image files are allowed"
         )
     
-    # Generate unique filename
+    
     file_extension = file.filename.split('.')[-1]
     filename = f"{current_user.patient_id}_{uuid.uuid4().hex}.{file_extension}"
     file_path = os.path.join("uploads", filename)
     
-    # Save file
+    
     with open(file_path, "wb") as buffer:
         content = await file.read()
         buffer.write(content)
