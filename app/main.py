@@ -32,7 +32,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 from fastapi.responses import RedirectResponse, HTMLResponse
 
-# Add these before your router includes
+
 @app.get("/verify-email/{token}", include_in_schema=False)
 async def redirect_verify_email(token: str):
     """Redirect old verification links"""
@@ -55,18 +55,18 @@ async def welcome_page():
             <style>
                 body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
                 .container { max-width: 800px; margin: 0 auto; }
-                .logo { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
+                .logo { color: margin-bottom: 20px; }
                 .button { 
                     display: inline-block; 
                     padding: 12px 24px; 
                     margin: 10px;
-                    background-color: #4CAF50; 
+                    background-color: 
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
                 }
-                .api-button { background-color: #2196F3; }
-                .section { margin: 40px 0; padding: 20px; background: #f9f9f9; border-radius: 10px; }
+                .api-button { background-color: 
+                .section { margin: 40px 0; padding: 20px; background: 
             </style>
         </head>
         <body>
@@ -78,8 +78,8 @@ async def welcome_page():
                 <div class="section">
                     <h2>Get Started</h2>
                     <a href="/docs" class="button api-button">API Documentation</a>
-                    <a href="/docs#/authentication/signup" class="button">Sign Up</a>
-                    <a href="/docs#/authentication/login" class="button">Login</a>
+                    <a href="/docsclass="button">Sign Up</a>
+                    <a href="/docsclass="button">Login</a>
                 </div>
                 
                 <div class="section">
@@ -106,7 +106,7 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Database setup warning: {e}")
 
-# Import core routers
+
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
 from app.routers.health import router as health_router
@@ -124,7 +124,7 @@ try:
     app.include_router(superadmin_router)
     logger.info("Superadmin router loaded successfully")
     
-    # Test if endpoints are registered
+    
     logger.info("Superadmin endpoints registered:")
     for route in superadmin_router.routes:
         if hasattr(route, 'methods'):
@@ -133,7 +133,7 @@ try:
             
 except ImportError as e:
     logger.error(f"Failed to import superadmin router: {e}")
-    # Try to show what's wrong
+    
     import traceback
     traceback.print_exc()
 except Exception as e:
@@ -141,7 +141,7 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-# Load other routers with error handling
+
 try:
     from app.routers.caregivers import router as caregivers_router
     app.include_router(caregivers_router)
@@ -178,7 +178,7 @@ try:
 except ImportError as e:
     logger.error(f"❌ Failed to import Google Auth router: {e}")
 
-# Update CORS settings
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -199,6 +199,25 @@ try:
 except ImportError as e:
     logger.warning(f"Food Analysis router not loaded: {e}")
 
+@app.get("/debug/google-setup")
+async def debug_google_setup():
+    """Debug Google OAuth setup"""
+    import os
+    return {
+        "GOOGLE_CLIENT_ID": os.getenv("GOOGLE_CLIENT_ID", "NOT SET"),
+        "GOOGLE_CLIENT_SECRET": "SET" if os.getenv("GOOGLE_CLIENT_SECRET") else "NOT SET",
+        "BASE_URL": os.getenv("BASE_URL", "NOT SET"),
+        "FRONTEND_URL": os.getenv("FRONTEND_URL", "NOT SET"),
+        "Expected Redirect URI": f"{os.getenv('BASE_URL', 'http://localhost:8000')}/auth/google/callback",
+        "Instructions": [
+            "1. Make sure this redirect URI is in Google Console:",
+            f"   {os.getenv('BASE_URL', 'http://localhost:8000')}/auth/google/callback",
+            "2. Wait 5 minutes after updating Google Console",
+            "3. Clear browser cache",
+            "4. Test with: /auth/google/login"
+        ]
+    }
+    
 @app.get("/")
 async def root():
     try:
@@ -207,7 +226,7 @@ async def root():
     except:
         db_status = "disconnected"
     
-    # List all routes for debugging
+    
     routes = []
     for route in app.routes:
         if hasattr(route, 'methods'):
@@ -248,7 +267,7 @@ async def health_check():
         "environment": settings.ENVIRONMENT
     }
 
-# Debug endpoint to list all routes
+
 @app.get("/debug/routes")
 async def debug_routes():
     routes = []
@@ -285,18 +304,18 @@ async def welcome_page():
             <style>
                 body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
                 .container { max-width: 800px; margin: 0 auto; }
-                .logo { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
+                .logo { color: margin-bottom: 20px; }
                 .button { 
                     display: inline-block; 
                     padding: 12px 24px; 
                     margin: 10px;
-                    background-color: #4CAF50; 
+                    background-color: 
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
                 }
-                .api-button { background-color: #2196F3; }
-                .section { margin: 40px 0; padding: 20px; background: #f9f9f9; border-radius: 10px; }
+                .api-button { background-color: 
+                .section { margin: 40px 0; padding: 20px; background: 
             </style>
         </head>
         <body>
@@ -308,8 +327,8 @@ async def welcome_page():
                 <div class="section">
                     <h2>Get Started</h2>
                     <a href="/docs" class="button api-button">API Documentation</a>
-                    <a href="/docs#/authentication/signup" class="button">Sign Up</a>
-                    <a href="/docs#/authentication/login" class="button">Login</a>
+                    <a href="/docsclass="button">Sign Up</a>
+                    <a href="/docsclass="button">Login</a>
                 </div>
                 
                 <div class="section">
