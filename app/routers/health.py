@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import random
 from app.database import get_db
-from app.auth.security import get_current_active_user  # Fixed import
+from app.auth.security import get_current_active_user  
 from app.models.user import User, UserProfile
 from app.models.health import HealthData, FoodLog, WeeklyProgress, HealthInsight
 from app.schemas.health import HealthDataCreate, HealthDataResponse, FoodLogCreate, FoodLogResponse, WeeklyProgressResponse, HealthDashboardResponse, ProgressUpdateRequest
@@ -27,16 +27,54 @@ async def get_health_dashboard(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Get user profile for welcome message
+    
+    
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_food_logs = db.query(FoodLog).filter(
+        FoodLog.user_id == current_user.id,
+        FoodLog.created_at >= today_start
+    ).order_by(FoodLog.created_at.desc()).limit(5).all()
+    
+    
+    recent_meals = []
+    for log in today_food_logs:
+        recent_meals.append({
+            "id": log.id,
+            "meal_type": log.meal_type,
+            "detected_food": log.ai_analysis.get('detected_food', 'Unknown') if log.ai_analysis else 'Unknown',
+            "diet_score": log.diet_score,
+            "created_at": log.created_at
+        })
+    
+    diet_score = None
+    if today_food_logs:
+        diet_score = sum(log.diet_score or 0 for log in today_food_logs) // len(today_food_logs)
+    
+    daily_tip = get_daily_tip()
+    
+    
+    return {
+        "welcome_message": f"Welcome, {welcome_name}. I hope you are doing well today. Check in for your weekly progress.",
+        "weekly_progress": weekly_progress,
+        "health_snapshot": health_data or HealthDataResponse(
+            id=0, user_id=current_user.id, date=datetime.now()
+        ),
+        "diet_score": diet_score,
+        "daily_tip": daily_tip,
+        "recent_meals": recent_meals,  
+        "meal_count_today": len(today_food_logs)  
+    }
+
+    
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     welcome_name = profile.full_name if profile else "User"
     
-    # Get latest health data
+    
     health_data = db.query(HealthData).filter(
         HealthData.user_id == current_user.id
     ).order_by(HealthData.date.desc()).first()
     
-    # Get current week's progress
+    
     today = datetime.now()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
@@ -47,7 +85,7 @@ async def get_health_dashboard(
     ).first()
     
     if not weekly_progress:
-        # Create default weekly progress
+        
         weekly_progress = WeeklyProgress(
             user_id=current_user.id,
             week_start_date=week_start,
@@ -62,7 +100,7 @@ async def get_health_dashboard(
         db.commit()
         db.refresh(weekly_progress)
     
-    # Get today's food logs for diet score
+    
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     today_food_logs = db.query(FoodLog).filter(
         FoodLog.user_id == current_user.id,
@@ -91,7 +129,7 @@ async def log_food(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Mock AI analysis
+    
     ai_analysis = {
         "analysis": "Food analyzed successfully",
         "nutrients": {
@@ -146,7 +184,7 @@ async def get_health_snapshot(
     ).order_by(HealthData.date.desc()).first()
     
     if not snapshot:
-        # Create default health data
+        
         snapshot = HealthData(
             user_id=current_user.id,
             steps=0,
@@ -196,7 +234,7 @@ async def update_weekly_progress(
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
     
-    # Determine progress color
+    
     if progress_data.progress_score >= 80:
         progress_color = "green"
     elif progress_data.progress_score >= 60:

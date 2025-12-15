@@ -1,99 +1,284 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
-import os
-import uuid
-from datetime import datetime
 from typing import Optional
+import uuid
+import os
+from datetime import datetime
+import tempfile
+
 from app.database import get_db
 from app.auth.security import get_current_active_user
-from app.models.user import User, UserProfile
+from app.models.user import User
 from app.models.health import FoodLog
 from app.services.azure_ai import azure_ai_service
-from app.services.azure_storage import azure_storage_service
-from app.services.email_service import email_service
-from app.config import settings
-from pydantic import BaseModel, Field
-import json
+from app.schemas.health import FoodLogResponse
+import logging
 
-router = APIRouter(prefix="/food", tags=["food_analysis"])
+logger = logging.getLogger(__name__)
 
-# Pydantic Models
-class FoodAnalysisResponse(BaseModel):
-    food_id: int
-    meal_type: str
-    detected_food: str
-    description: str
-    nutrients: dict
-    diet_score: int
-    recommendation: str
-    image_url: Optional[str]
-    created_at: datetime
+router = APIRouter(prefix="/api", tags=["food_analysis"])
 
-class MealAnalysisRequest(BaseModel):
-    meal_type: str = Field(..., description="breakfast, lunch, dinner, snack")
-    notes: Optional[str] = None
+@router.post("/analyze-meal", response_model=dict)
+async def analyze_meal(
+    meal_type: str = Form(..., description="Type of meal: breakfast, lunch, dinner, snack"),
+    file: UploadFile = File(..., description="Image of the meal"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze a meal image using Azure AI Vision.
+    
+    This endpoint:
+    1. Accepts an image upload
+    2. Sends it to Azure AI Vision for analysis
+    3. Returns food tags and nutritional estimates
+    4. Saves the analysis to the database
+    """
+    
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {', '.join(allowed_types)}"
+        )
+    
+    # Validate file size (max 10MB)
+    max_size = 10 * 1024 * 1024  # 10MB
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+    
+    if file_size > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is 10MB"
+        )
+    
+    # Create temp file for processing
+    temp_dir = tempfile.gettempdir()
+    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    temp_filename = f"meal_{uuid.uuid4().hex}.{file_extension}"
+    temp_path = os.path.join(temp_dir, temp_filename)
+    
+    try:
+        # Save uploaded file temporarily
+        with open(temp_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        logger.info(f"Processing meal image for user {current_user.id}: {temp_path}")
+        
+        # Analyze image with Azure AI
+        analysis_result = azure_ai_service.analyze_food_image(temp_path)
+        
+        if not analysis_result:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to analyze image. Please try again."
+            )
+        
+        # Get user profile for personalized recommendations
+        from app.models.user import UserProfile
+        user_profile = db.query(UserProfile).filter(
+            UserProfile.user_id == current_user.id
+        ).first()
+        
+        # Prepare user data for personalized recommendations
+        user_data = {}
+        if user_profile:
+            user_data = {
+                'age': user_profile.age,
+                'chronic_conditions': user_profile.chronic_conditions or [],
+                'gender': user_profile.gender
+            }
+        
+        # Get personalized health recommendation
+        recommendation = azure_ai_service.get_health_recommendation(
+            user_data, 
+            analysis_result
+        )
+        
+        # Calculate diet score based on analysis
+        diet_score = calculate_diet_score(analysis_result, user_data)
+        
+        # Save to database
+        food_log = FoodLog(
+            user_id=current_user.id,
+            meal_type=meal_type,
+            food_image_url=temp_path,  # In production, upload to Azure Blob Storage
+            ai_analysis=analysis_result,
+            diet_score=diet_score,
+            nutrients=analysis_result.get('nutrients', {}),
+            created_at=datetime.now()
+        )
+        
+        db.add(food_log)
+        db.commit()
+        db.refresh(food_log)
+        
+        # Prepare response
+        response = {
+            "analysis_id": food_log.id,
+            "meal_type": meal_type,
+            "detected_food": analysis_result.get('detected_food', 'Unknown'),
+            "description": analysis_result.get('description', ''),
+            "tags": analysis_result.get('tags', []),
+            "nutrients": analysis_result.get('nutrients', {}),
+            "confidence": analysis_result.get('confidence', 0),
+            "diet_score": diet_score,
+            "recommendation": recommendation,
+            "analysis_source": analysis_result.get('analysis_source', 'azure_ai'),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        logger.info(f"Meal analysis completed for user {current_user.id}: {analysis_result.get('detected_food')}")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error analyzing meal image: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+    finally:
+        # Clean up temp file
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except:
+            pass
 
-# Helper Functions
-def calculate_diet_score(nutrients: dict, user_conditions: list) -> int:
-    """Calculate diet score based on nutrients and user conditions"""
-    score = 70  # Base score
+@router.get("/recent-meals", response_model=list)
+async def get_recent_meals(
+    skip: int = 0,
+    limit: int = 10,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's recent meal analyses"""
     
-    # Adjust based on nutrients
-    calories = nutrients.get("calories", 500)
-    if 300 <= calories <= 500:
-        score += 10
-    elif calories > 700:
-        score -= 15
+    meals = db.query(FoodLog).filter(
+        FoodLog.user_id == current_user.id
+    ).order_by(
+        FoodLog.created_at.desc()
+    ).offset(skip).limit(limit).all()
     
-    carbs = nutrients.get("carbs", 50)
-    if carbs < 40:
-        score += 5
-    elif carbs > 70:
-        score -= 10
+    result = []
+    for meal in meals:
+        result.append({
+            "id": meal.id,
+            "meal_type": meal.meal_type,
+            "detected_food": meal.ai_analysis.get('detected_food', 'Unknown') if meal.ai_analysis else 'Unknown',
+            "diet_score": meal.diet_score,
+            "nutrients": meal.nutrients or {},
+            "created_at": meal.created_at.isoformat(),
+            "recommendation": meal.ai_analysis.get('recommendation', '') if meal.ai_analysis else ''
+        })
     
-    protein = nutrients.get("protein", 15)
-    if protein > 20:
-        score += 10
-    elif protein < 10:
-        score -= 5
-    
-    # Adjust for diabetes
-    if "diabetes" in user_conditions:
-        if carbs > 60:
-            score -= 20
-        if nutrients.get("type") == "starch":
-            score -= 15
-    
-    # Adjust for hypertension
-    if "hypertension" in user_conditions:
-        # In real app, check sodium content
-        if nutrients.get("type") == "processed":
-            score -= 15
-    
-    # Adjust for obesity
-    if "obesity" in user_conditions:
-        if calories > 600:
-            score -= 20
-    
-    # Ensure score is between 0-100
-    return max(0, min(100, score))
+    return result
 
-def save_food_image(file: UploadFile) -> str:
-    """Save food image to local storage (in production, use Azure Blob)"""
-    os.makedirs("uploads/food", exist_ok=True)
+def calculate_diet_score(analysis_result: dict, user_data: dict) -> int:
+    """Calculate a diet score from 0-100 based on analysis and user health"""
     
-    filename = f"{uuid.uuid4()}_{file.filename}"
-    filepath = os.path.join("uploads/food", filename)
+    base_score = 70  # Start with neutral score
     
-    with open(filepath, "wb") as buffer:
-        content = file.file.read()
-        buffer.write(content)
+    nutrients = analysis_result.get('nutrients', {})
     
-    return filepath
+    # Adjust based on nutritional values
+    if nutrients.get('calories', 0) > 500:
+        base_score -= 15
+    elif nutrients.get('calories', 0) < 200:
+        base_score += 10
+    
+    if nutrients.get('protein', 0) > 20:
+        base_score += 10
+    
+    if nutrients.get('carbs', 0) > 60:
+        base_score -= 10
+    
+    # Adjust based on user health conditions
+    chronic_conditions = user_data.get('chronic_conditions', [])
+    
+    if 'diabetes' in chronic_conditions and nutrients.get('carbs', 0) > 40:
+        base_score -= 20
+    
+    if 'hypertension' in chronic_conditions and nutrients.get('type') == 'high_sodium':
+        base_score -= 15
+    
+    # Adjust based on food type
+    food_type = nutrients.get('type', '')
+    if food_type in ['vegetable', 'fruit']:
+        base_score += 15
+    elif food_type in ['starch', 'grain']:
+        base_score -= 5
+    
+    # Ensure score is within bounds
+    return max(0, min(100, base_score))
 
-# Endpoints
-@router.post("/analyze", response_model=FoodAnalysisResponse)
-async def analyze_food(
+@router.post("/log-meal-manual")
+async def log_meal_manual(
     meal_type: str,
-    file: UploadFile = File(...),
-    notes:
+    food_name: str,
+    calories: int,
+    carbs: int,
+    protein: int,
+    fats: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Manual meal logging (fallback when no image)"""
+    
+    # Create manual analysis
+    analysis_result = {
+        "detected_food": food_name,
+        "description": f"Manually logged: {food_name}",
+        "tags": ["manual_log", food_name.lower()],
+        "nutrients": {
+            "calories": calories,
+            "carbs": carbs,
+            "protein": protein,
+            "fat": fats,
+            "type": "manual_entry"
+        },
+        "confidence": 1.0,
+        "analysis_source": "manual"
+    }
+    
+    # Calculate score
+    user_profile = db.query(UserProfile).filter(
+        UserProfile.user_id == current_user.id
+    ).first()
+    
+    user_data = {}
+    if user_profile:
+        user_data = {
+            'age': user_profile.age,
+            'chronic_conditions': user_profile.chronic_conditions or [],
+            'gender': user_profile.gender
+        }
+    
+    diet_score = calculate_diet_score(analysis_result, user_data)
+    
+    # Save to database
+    food_log = FoodLog(
+        user_id=current_user.id,
+        meal_type=meal_type,
+        ai_analysis=analysis_result,
+        diet_score=diet_score,
+        nutrients=analysis_result['nutrients'],
+        created_at=datetime.now()
+    )
+    
+    db.add(food_log)
+    db.commit()
+    
+    return {
+        "message": "Meal logged successfully",
+        "meal_id": food_log.id,
+        "food_name": food_name,
+        "diet_score": diet_score
+    }

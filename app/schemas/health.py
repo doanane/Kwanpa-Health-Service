@@ -71,6 +71,10 @@ class HealthDashboardResponse(BaseModel):
     health_snapshot: HealthDataResponse
     diet_score: Optional[int] = None
     daily_tip: Optional[str] = None
-
+    recent_meals: List[Dict[str, Any]] = []  # Add this
+    meal_count_today: int = 0  # Add this
+    
+    model_config = ConfigDict(from_attributes=True)
+    
 class ProgressUpdateRequest(BaseModel):
     progress_score: int = Field(..., ge=0, le=100, description="Progress score from 0 to 100")
