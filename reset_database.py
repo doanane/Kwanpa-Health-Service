@@ -21,17 +21,17 @@ def reset_database():
         return
     
     try:
-        # Drop all tables
+        
         print("Dropping all tables...")
         Base.metadata.drop_all(bind=engine)
         
-        # Create all tables fresh
+        
         print("Creating fresh tables...")
         Base.metadata.create_all(bind=engine)
         
         print("✅ Database reset complete")
         
-        # Create default data
+        
         create_default_data()
         
     except Exception as e:
@@ -43,7 +43,7 @@ def create_default_data():
     """Create default superadmin and doctors"""
     db = SessionLocal()
     try:
-        # 1. Create superadmin
+        
         superadmin = Admin(
             email="superadmin@hewal3.com",
             hashed_password=get_password_hash("Super@1234"),
@@ -54,7 +54,7 @@ def create_default_data():
         )
         db.add(superadmin)
         
-        # 2. Create your preferred superadmin
+        
         your_admin = Admin(
             email="superadmin@gmail.com",
             hashed_password=get_password_hash("super1234"),
@@ -65,7 +65,7 @@ def create_default_data():
         )
         db.add(your_admin)
         
-        # 3. Create sample doctors
+        
         doctors = [
             {
                 "doctor_id": "DOC001001",
