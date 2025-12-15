@@ -1,1 +1,0 @@
-DATABASE_UR=postgresql://kwanpa_db:lyF7V80XmLvNmbrF5X9MPElBufZpQOhp@dpg-d3v1vkeuk2gs73e85vag-a.oregon-postgres.render.com/kwanpa_db
