@@ -1,8 +1,6 @@
 import os
 import logging
-import base64
-import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 import requests
 from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from azure.cognitiveservices.vision.computervision.models import VisualFeatureTypes
@@ -25,7 +23,7 @@ class AzureAIService:
                     endpoint=settings.AZURE_AI_VISION_ENDPOINT,
                     credentials=credentials
                 )
-                logger.info("Azure AI Vision initialized")
+                logger.info("Azure AI Vision initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize Azure Vision: {e}")
         else:
@@ -39,7 +37,7 @@ class AzureAIService:
                     api_key=settings.AZURE_OPENAI_KEY,
                     api_version="2024-02-01"
                 )
-                logger.info("Azure OpenAI initialized")
+                logger.info("Azure OpenAI initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize Azure OpenAI: {e}")
         else:
@@ -74,7 +72,7 @@ class AzureAIService:
             # Get description
             description = analysis_result.description.captions[0].text if analysis_result.description.captions else ""
             
-            # Ghanaian food database (mock - in real app, use a proper database)
+            # Ghanaian food database
             ghanaian_foods = {
                 "fufu": {"calories": 250, "carbs": 60, "protein": 5, "fat": 1, "type": "starch"},
                 "banku": {"calories": 280, "carbs": 65, "protein": 6, "fat": 2, "type": "starch"},
@@ -186,7 +184,7 @@ class AzureAIService:
         if food_type == "starch" and "diabetes" in user_data.get('chronic_conditions', []):
             return "This meal is high in starch. For better blood sugar control, consider reducing portion size and adding more leafy vegetables like kontomire."
         elif food_type == "protein":
-            return "Good protein choice! Protein helps maintain muscle mass and keeps you full longer. Consider adding a side of vegetables for balanced nutrition."
+            return "Good protein choice. Protein helps maintain muscle mass and keeps you full longer. Consider adding a side of vegetables for balanced nutrition."
         else:
             return "Your meal looks balanced. Remember to drink plenty of water and take your medications as prescribed."
 

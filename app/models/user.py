@@ -19,7 +19,7 @@ class User(Base):
     apple_id = Column(String, unique=True, nullable=True)
     is_active = Column(Boolean, default=True)
     is_caregiver = Column(Boolean, default=False)
-    # NEW COLUMNS - MAKE SURE THESE ARE HERE:
+   
     is_email_verified = Column(Boolean, default=False)
     phone_number = Column(String, nullable=True)
     mfa_enabled = Column(Boolean, default=False)

@@ -24,17 +24,24 @@ class EmailService:
         
         self.from_email = getattr(settings, 'FROM_EMAIL', "noreply@hewal3.com")
         self.support_email = getattr(settings, 'HEWAL3_SUPPORT_EMAIL', "support@hewal3.com")
-    
+
     def send_email(self, to_email: str, subject: str, html_content: str, text_content: Optional[str] = None):
-        """Send an email using SendGrid or log if not configured"""
+        """Send an email using SendGrid"""
+        
+        # DEBUG: Check if client exists
+        logger.info(f"DEBUG: SendGrid client exists: {self.sendgrid_client is not None}")
+        logger.info(f"DEBUG: API Key configured: {hasattr(settings, 'SENDGRID_API_KEY')}")
+        
         if not self.sendgrid_client:
-            logger.info(f"📧 Email would be sent to {to_email}: {subject}")
-            logger.info(f"HTML content preview: {html_content[:200]}...")
-            return True  # Return True for development
+            logger.error("❌ SendGrid client not initialized. Check SENDGRID_API_KEY in .env")
+            logger.info(f"📧 Email WOULD be sent to {to_email}: {subject}")
+            logger.info(f"HTML preview: {html_content[:200]}...")
+            return False  # Return False to trigger fallback
         
         try:
-            from sendgrid.helpers.mail import Mail, From, To, Subject, HtmlContent
+            from sendgrid.helpers.mail import Mail, From, To, Subject, HtmlContent, Content
             
+            # Create email
             message = Mail(
                 from_email=From(self.from_email, "HEWAL3 Health System"),
                 to_emails=To(to_email),
@@ -42,19 +49,24 @@ class EmailService:
                 html_content=HtmlContent(html_content)
             )
             
+            # Add text content if provided
+            if text_content:
+                message.content = Content("text/plain", text_content)
+            
+            # Send email
             response = self.sendgrid_client.send(message)
             
             if response.status_code in [200, 201, 202]:
-                logger.info(f"Email sent successfully to {to_email}")
+                logger.info(f"✅ Email ACTUALLY sent to {to_email}")
                 return True
             else:
-                logger.error(f"Failed to send email: {response.status_code} - {response.body}")
+                logger.error(f"❌ Failed to send email: {response.status_code} - {response.body}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error sending email: {e}")
-            return False
-    
+            logger.error(f"❌ Error sending email: {e}")
+            return False    
+
     def send_welcome_email(self, user_email: str, user_name: str, verification_token: str):
         """Send welcome email with verification link"""
         verification_link = f"{self.base_url}/auth/verify-email-page/{verification_token}"
