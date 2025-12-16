@@ -10,6 +10,10 @@ from app.models.admin import Admin
 from app.auth.hashing import get_password_hash
 import getpass
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
+
 def create_superadmin():
     print("=" * 50)
     print("HEWAL3 Super Admin Creator")
@@ -42,7 +46,8 @@ def create_superadmin():
     print("=" * 50)
     
     # Create database session
-    engine = create_engine(os.getenv("DATABASE_URL", "postgresql://hewal3_admin:S0570263170s@hewal3-databaase.postgres.database.azure.com:5432/postgres?sslmode=require"))
+    engine = create_engine(DATABASE_URL)
+
     
     with Session(engine) as db:
         # Check if admin already exists
