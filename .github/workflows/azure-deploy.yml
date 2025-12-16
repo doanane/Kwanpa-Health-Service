@@ -28,6 +28,12 @@ jobs:
       run: |
         # Add your test commands here
         echo "Tests would run here"
+    
+    - name: Login to Azure
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
         
     - name: Deploy to Azure Web App
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -35,5 +41,4 @@ jobs:
       with:
         app-name: 'hewal3-backend'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
         package: .
