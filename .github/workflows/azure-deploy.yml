@@ -18,7 +18,9 @@ jobs:
         
     - name: Install dependencies
       run: |
-        pip install fastapi uvicorn gunicorn
+        python -m pip install --upgrade pip
+        pip install fastapi uvicorn[standard] gunicorn gunicorn
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         
     - name: Login to Azure
       uses: azure/login@v1
