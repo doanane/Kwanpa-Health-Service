@@ -13,7 +13,7 @@ import uuid
 
 router = APIRouter(prefix="/doctors/auth", tags=["doctor_authentication"])
 
-# Pydantic Models
+
 class DoctorLogin(BaseModel):
     doctor_id: str = Field(..., min_length=8, max_length=8)
     password: str
@@ -35,7 +35,7 @@ class TokenResponse(BaseModel):
     specialization: str
     is_active: bool
 
-# Helper Functions
+
 def generate_token(length=32):
     """Generate random token"""
     return secrets.token_urlsafe(length)
@@ -47,7 +47,7 @@ def create_doctor_session(doctor_id: int, request: Request, db: Session):
     ip_address = request.client.host if request.client else "Unknown"
     
     session = UserSession(
-        user_id=doctor_id,  # Note: Using user_id field for doctor sessions
+        user_id=doctor_id,  
         session_token=session_token,
         device_info=device_info,
         ip_address=ip_address,
@@ -58,7 +58,7 @@ def create_doctor_session(doctor_id: int, request: Request, db: Session):
     db.commit()
     return session_token
 
-# Endpoints
+
 @router.post("/login", response_model=TokenResponse)
 async def doctor_login(
     login_data: DoctorLogin,
@@ -86,10 +86,10 @@ async def doctor_login(
             detail="Doctor account is inactive"
         )
     
-    # Check if this is first login (no email set or using default password)
+    
     is_first_login = not doctor.email or doctor.created_by == "system"
     
-    # If first login, doctor must set email and change password
+    
     if is_first_login:
         return {
             "message": "First login detected. Please set your email and change password.",
@@ -97,13 +97,13 @@ async def doctor_login(
             "doctor_id": doctor.doctor_id
         }
     
-    # Create access token
+    
     access_token = create_access_token(
         data={"sub": doctor.doctor_id},
         user_type="doctor"
     )
     
-    # Create session
+    
     create_doctor_session(doctor.id, request, db)
     
     return TokenResponse(
@@ -132,7 +132,7 @@ async def doctor_first_login_setup(
             detail="Doctor not found"
         )
     
-    # Check if email already used
+    
     existing_doctor = db.query(Doctor).filter(Doctor.email == email).first()
     if existing_doctor and existing_doctor.id != doctor.id:
         raise HTTPException(
@@ -140,13 +140,13 @@ async def doctor_first_login_setup(
             detail="Email already registered"
         )
     
-    # Update doctor info
+    
     doctor.email = email
     doctor.hashed_password = get_password_hash(new_password)
     
     db.commit()
     
-    # Send welcome email
+    
     email_service.send_email(
         email,
         "Welcome to HEWAL3 Doctor Portal",
@@ -161,13 +161,13 @@ async def doctor_first_login_setup(
         """
     )
     
-    # Create access token
+    
     access_token = create_access_token(
         data={"sub": doctor.doctor_id},
         user_type="doctor"
     )
     
-    # Create session
+    
     create_doctor_session(doctor.id, request, db)
     
     return {
@@ -195,7 +195,7 @@ async def doctor_change_password(
     current_doctor.hashed_password = get_password_hash(request_data.new_password)
     db.commit()
     
-    # Send notification email
+    
     if current_doctor.email:
         email_service.send_email(
             current_doctor.email,
@@ -219,11 +219,11 @@ async def doctor_forgot_password(
     doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
     
     if not doctor or not doctor.email:
-        # For security, don't reveal if doctor exists
+        
         return {"message": "If a doctor with this ID exists and has email registered, admin will be notified"}
     
-    # In real implementation, this would notify admin to reset password
-    # For now, we'll send email to doctor (in production, this should go to admin)
+    
+    
     background_tasks.add_task(
         email_service.send_email,
         doctor.email,
@@ -246,7 +246,7 @@ async def doctor_logout(
     db: Session = Depends(get_db)
 ):
     """Doctor logout"""
-    # Mark doctor's sessions as inactive
+    
     db.query(UserSession).filter(UserSession.user_id == current_doctor.id).update({"is_active": False})
     db.commit()
     
@@ -277,20 +277,20 @@ async def doctor_dashboard(
     """Doctor dashboard with patient statistics"""
     from app.models.user import UserProfile
     
-    # Get doctor's patients
+    
     patients = db.query(UserProfile).filter(
         UserProfile.doctor_id == current_doctor.doctor_id,
         UserProfile.profile_completed == True
     ).all()
     
-    # Calculate statistics
+    
     total_patients = len(patients)
     
-    # Get critical patients (mock logic - in real app, check vitals)
+    
     from app.models.health import HealthData
     critical_patients = []
     
-    for patient in patients[:5]:  # Check first 5 patients
+    for patient in patients[:5]:  
         latest_health = db.query(HealthData).filter(
             HealthData.user_id == patient.user_id
         ).order_by(HealthData.date.desc()).first()
@@ -303,7 +303,7 @@ async def doctor_dashboard(
                 "status": "critical"
             })
     
-    # Recent appointments (mock data)
+    
     recent_appointments = [
         {
             "patient_name": "John Doe",
@@ -327,7 +327,7 @@ async def doctor_dashboard(
             "total_patients": total_patients,
             "critical_patients": len(critical_patients),
             "stable_patients": total_patients - len(critical_patients),
-            "new_patients_week": 3  # Mock data
+            "new_patients_week": 3  
         },
         "critical_patients": critical_patients[:3],
         "recent_appointments": recent_appointments,
