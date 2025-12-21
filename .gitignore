@@ -79,3 +79,6 @@ hewal3.db
 *.sql
 /database/
 /migrations/
+.env
+.env.local
+*.env
