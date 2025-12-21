@@ -85,3 +85,6 @@ hewal3.db
 .env
 .env.local
 *.env.*
+.env
+.env.local
+*.env.*
