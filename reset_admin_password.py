@@ -10,7 +10,7 @@ def add_email_column():
     print("Checking doctors table for email column...")
     
     with engine.connect() as conn:
-        # Check if column exists
+        
         result = conn.execute(text("""
             SELECT column_name 
             FROM information_schema.columns 
@@ -29,7 +29,7 @@ def add_email_column():
         else:
             print("✅ Email column already exists")
         
-        # Show table structure
+        
         print("\nDoctors table structure:")
         result = conn.execute(text("""
             SELECT column_name, data_type, is_nullable

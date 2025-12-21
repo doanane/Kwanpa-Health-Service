@@ -199,14 +199,9 @@ try:
 except ImportError as e:
     logger.warning(f"Food Analysis router not loaded: {e}")
 
-
 @app.get("/")
-async def root():
-    try:
-        with engine.connect():
-            db_status = "connected"
-    except:
-        db_status = "disconnected"
+def read_root():
+    return {"message": "Hello from Azure!"}
     
     
     routes = []
