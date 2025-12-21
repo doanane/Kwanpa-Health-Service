@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification - HEWAL3</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            padding: 40px 30px;
+            text-align: center;
+            color: white;
+        }
+        
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 2.8rem;
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+        
+        .content {
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .status-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            position: relative;
+        }
+        
+        .success-icon {
+            color: #4CAF50;
+            font-size: 5rem;
+            animation: scaleIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        .error-icon {
+            color: #f44336;
+            font-size: 5rem;
+            animation: shake 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+        }
+        
+        @keyframes scaleIn {
+            0% {
+                transform: scale(0);
+            }
+            70% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        .checkmark-circle {
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            stroke-width: 2;
+            stroke-miterlimit: 10;
+            stroke: #4CAF50;
+            fill: none;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+        }
+        
+        .checkmark {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: block;
+            stroke-width: 2;
+            stroke: #4CAF50;
+            stroke-miterlimit: 10;
+            margin: 0 auto;
+            box-shadow: inset 0px 0px 0px #4CAF50;
+            animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+        }
+        
+        .checkmark-check {
+            transform-origin: 50% 50%;
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+            animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+        }
+        
+        @keyframes stroke {
+            100% { stroke-dashoffset: 0; }
+        }
+        
+        @keyframes scale {
+            0%, 100% { transform: none; }
+            50% { transform: scale3d(1.1, 1.1, 1); }
+        }
+        
+        @keyframes fill {
+            100% { box-shadow: inset 0px 0px 0px 60px #4CAF50; }
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+        
+        .success h2 {
+            color: #4CAF50;
+        }
+        
+        .error h2 {
+            color: #f44336;
+        }
+        
+        p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+        }
+        
+        .user-email {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 600;
+            color: #333;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            min-width: 180px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e9ecef;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .footer {
+            padding: 25px 30px;
+            background: #f8f9fa;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .footer a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .spinner {
+            width: 70px;
+            height: 70px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .form-container {
+            text-align: left;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .form-group input.error {
+            border-color: #f44336;
+        }
+        
+        .error-message {
+            color: #f44336;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                border-radius: 15px;
+            }
+            
+            .header, .content {
+                padding: 30px 20px;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-heartbeat"></i>
+                HEWAL3
+            </div>
+            <h1>Health Management System</h1>
+            <p>Your health, our priority</p>
+        </div>
+        
+        <div class="content" id="content">
+            <!-- Content will be dynamically loaded by JavaScript -->
+        </div>
+        
+        <div class="footer">
+            <p>© 2025 HEWAL3 Health System. All rights reserved.</p>
+            <p>Need help? <a href="mailto:support@hewal3.com">Contact Support</a></p>
+        </div>
+    </div>
+    
+    <script>
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || window.location.pathname.split('/').pop();
+        
+        // Determine page type from URL
+        const path = window.location.pathname;
+        let pageType = 'verify';
+        
+        if (path.includes('reset-password')) {
+            pageType = 'reset';
+        }
+        
+        // Show loading initially
+        document.getElementById('content').innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <h2>Loading...</h2>
+                <p>Please wait while we process your request</p>
+            </div>
+        `;
+        
+        // Function to show success page
+        function showSuccess(message, email = '', showLoginButton = true) {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="success">
+                    <div class="status-icon">
+                        <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                        </svg>
+                    </div>
+                    <h2>Success!</h2>
+                    <p>${message}</p>
+                    ${email ? `<div class="user-email">${email}</div>` : ''}
+                    <div class="buttons">
+                        ${showLoginButton ? `
+                        <a href="/docs#/authentication/login" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> Go to Login
+                        </a>
+                        ` : ''}
+                        <a href="/docs" class="btn btn-secondary">
+                            <i class="fas fa-book"></i> API Documentation
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Function to show error page
+        function showError(title, message, showRetryButton = false) {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="error">
+                    <div class="status-icon">
+                        <i class="fas fa-times-circle error-icon"></i>
+                    </div>
+                    <h2>${title}</h2>
+                    <p>${message}</p>
+                    <div class="buttons">
+                        ${showRetryButton ? `
+                        <button onclick="window.location.reload()" class="btn btn-primary">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
+                        ` : ''}
+                        <a href="/docs" class="btn btn-secondary">
+                            <i class="fas fa-book"></i> API Documentation
+                        </a>
+                        <a href="/docs#/authentication/login" class="btn btn-secondary">
+                            <i class="fas fa-sign-in-alt"></i> Go to Login
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Function to show reset password form
+        function showResetForm(prefilledToken = '') {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="form-container">
+                    <div class="status-icon">
+                        <i class="fas fa-key success-icon"></i>
+                    </div>
+                    <h2>Set New Password</h2>
+                    <p>Please enter your new password below. Make sure it's at least 8 characters long.</p>
+                    
+                    <form id="resetForm">
+                        ${prefilledToken ? `
+                        <input type="hidden" id="token" value="${prefilledToken}">
+                        ` : `
+                        <div class="form-group">
+                            <label for="token">Reset Token <span style="color: #666;">(from your email)</span></label>
+                            <input type="text" id="token" name="token" required placeholder="Enter the token from your email">
+                            <div class="error-message" id="tokenError"></div>
+                        </div>
+                        `}
+                        
+                        <div class="form-group">
+                            <label for="password">New Password</label>
+                            <input type="password" id="password" name="password" minlength="8" required placeholder="Enter new password (min 8 characters)">
+                            <div class="error-message" id="passwordError"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm Password</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword" minlength="8" required placeholder="Confirm new password">
+                            <div class="error-message" id="confirmError"></div>
+                        </div>
+                        
+                        <div class="buttons">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-lock"></i> Reset Password
+                            </button>
+                            <a href="/docs#/authentication/login" class="btn btn-secondary">
+                                <i class="fas fa-sign-in-alt"></i> Back to Login
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // Add form validation
+            const form = document.getElementById('resetForm');
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const token = document.getElementById('token').value;
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                // Reset errors
+                document.querySelectorAll('.error-message').forEach(el => {
+                    el.style.display = 'none';
+                    el.textContent = '';
+                });
+                document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
+                
+                let isValid = true;
+                
+                // Validate passwords match
+                if (password !== confirmPassword) {
+                    document.getElementById('confirmError').textContent = 'Passwords do not match';
+                    document.getElementById('confirmError').style.display = 'block';
+                    document.getElementById('confirmPassword').classList.add('error');
+                    isValid = false;
+                }
+                
+                // Validate password length
+                if (password.length < 8) {
+                    document.getElementById('passwordError').textContent = 'Password must be at least 8 characters';
+                    document.getElementById('passwordError').style.display = 'block';
+                    document.getElementById('password').classList.add('error');
+                    isValid = false;
+                }
+                
+                if (!isValid) return;
+                
+                // Show loading
+                content.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <h2>Resetting Password...</h2>
+                        <p>Please wait while we update your password</p>
+                    </div>
+                `;
+                
+                try {
+                    const response = await fetch('/auth/reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token, new_password: password })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        showSuccess(result.message || 'Your password has been reset successfully!', '', true);
+                    } else {
+                        showError('Reset Failed', result.detail || 'Failed to reset password. Please try again.', true);
+                    }
+                } catch (error) {
+                    showError('Connection Error', 'Failed to connect to server. Please check your internet connection.', true);
+                }
+            });
+        }
+        
+        // Load appropriate content based on page type
+        if (pageType === 'verify') {
+            // Verify email endpoint
+            fetch(`/auth/verify-email?token=${token}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message && data.message.includes('verified')) {
+                        showSuccess(
+                            'Your email has been verified successfully! You can now log in to your account.',
+                            data.email || '',
+                            true
+                        );
+                    } else {
+                        showError(
+                            'Verification Failed',
+                            data.detail || 'The verification link is invalid or has expired.',
+                            false
+                        );
+                    }
+                })
+                .catch(error => {
+                    showError(
+                        'Connection Error',
+                        'Failed to verify email. Please try again or contact support.',
+                        true
+                    );
+                });
+        } else if (pageType === 'reset') {
+            // Check if token is provided
+            if (token && token !== 'reset-password-page') {
+                // Validate token first
+                fetch(`/auth/reset-password?token=${token}`)
+                    .then(response => {
+                        if (response.status === 200) {
+                            showResetForm(token);
+                        } else {
+                            showError(
+                                'Invalid Token',
+                                'The reset token is invalid or has expired. Please request a new password reset.',
+                                false
+                            );
+                        }
+                    })
+                    .catch(error => {
+                        showResetForm(token);
+                    });
+            } else {
+                // No token provided, show form to enter token
+                showResetForm();
+            }
+        }
+        
+        // Handle direct API call for verification (POST endpoint)
+        if (pageType === 'verify' && token) {
+            // Also try POST endpoint
+            fetch('/auth/verify-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: token })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message && data.message.includes('verified')) {
+                    showSuccess(
+                        'Your email has been verified successfully! You can now log in to your account.',
+                        data.email || '',
+                        true
+                    );
+                }
+            })
+            .catch(() => {
+                // Ignore errors, we already handled with GET
+            });
+        }
+    </script>
+</body>
+</html>
