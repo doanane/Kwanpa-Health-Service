@@ -1,7 +1,10 @@
 import requests, openai
 import random
 from typing import Dict, Any
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 class FoodAnalyzer:
     FOOD_CATEGORY_MAP = {
         "Tatale_Ghana": "high_starch",
@@ -13,13 +16,9 @@ class FoodAnalyzer:
         "Jollof_rice_Ghana": "balanced"
     }
 
-    PREDICTION_ENDPOINT = (
-        "https://imaginhewale26.cognitiveservices.azure.com/"
-        "customvision/v3.0/Prediction/e16cef67-9b7b-4082-8d67-b8c61c1c6407/"
-        "classify/iterations/imaginhewale26/image"
-    )
-    PREDICTION_KEY = "9OFAduuqxHtsIXHakSmBUuXk3pjy5n1FUAMcjVFngt0Z6IZsirvPJQQJ99BLAC5RqLJXJ3w3AAAIACOGYZS5"
+    PREDICTION_ENDPOINT = os.getenv("AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT")
 
+    PREDICTION_KEY =os.getenv("AZURE_CUSTOM_VISION_PREDICTION_KEY")
     @staticmethod
     def analyze_food_image(image_path: str) -> Dict[str, Any]:
         """
@@ -108,7 +107,13 @@ class FoodAnalyzer:
         Output: Health tip string
         """
         import google.generativeai as genai
-        genai.configure(api_key="AIzaSyCXMc_75gvK6xUaCxpWhoq_wMjihlJz4oU")  # TODO: move to env
+        api_key = os.getenv("GEMINI_API")
+        
+        if not api_key:
+            raise RuntimeError("GEMINI_API is not set in the .env file")
+
+            
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-2.5-flash")
         prompt = (
             "Based on the following user health logs, provide a concise daily health tip for chronic disease management in Ghana:\n"
