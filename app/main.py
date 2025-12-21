@@ -6,6 +6,8 @@ import logging
 from app.database import create_tables, engine
 from app.config import settings
 from fastapi.responses import RedirectResponse, HTMLResponse
+from app.routers.food_analysis import router as food_analysis_router
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -116,6 +118,8 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(health_router)
 app.include_router(notifications_router)
+app.include_router(food_analysis_router)
+
 
 
 logger.info("Loading superadmin router...")

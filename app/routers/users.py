@@ -19,7 +19,7 @@ os.makedirs("uploads", exist_ok=True)
 async def complete_profile(
     profile_data: UserProfileCreate,
     db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+    current_user: Union[User, Admin] = Depends(get_current_active_user_or_admin)  # Changed: current -> current_user
 ):
     # Check if profile already exists
     existing_profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
@@ -63,7 +63,7 @@ async def complete_profile(
 @router.get("/profile", response_model=UserProfileResponse)
 async def get_profile(
     db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+    current_user: Union[User, Admin] = Depends(get_current_active_user_or_admin)  # Changed: current -> current_user
 ):
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
@@ -77,7 +77,7 @@ async def get_profile(
 async def link_device(
     device_data: UserDeviceCreate,
     db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+    current_user: Union[User, Admin] = Depends(get_current_active_user_or_admin)  # Changed: current -> current_user
 ):
     # Check if device already linked
     existing_device = db.query(UserDevice).filter(
@@ -100,7 +100,7 @@ async def link_device(
 @router.get("/devices", response_model=list[UserDeviceResponse])
 async def get_devices(
     db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+    current_user: Union[User, Admin] = Depends(get_current_active_user_or_admin)  # Changed: current -> current_user
 ):
     devices = db.query(UserDevice).filter(UserDevice.user_id == current_user.id).all()
     return devices
@@ -109,7 +109,7 @@ async def get_devices(
 async def unlink_device(
     device_id: int,
     db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+    current_user: Union[User, Admin] = Depends(get_current_active_user_or_admin)  # Changed: current -> current_user
 ):
     device = db.query(UserDevice).filter(
         UserDevice.id == device_id,
@@ -129,7 +129,7 @@ async def unlink_device(
 @router.post("/upload-profile-image")
 async def upload_profile_image(
     file: UploadFile = File(...),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+    current_user: Union[User, Admin] = Depends(get_current_active_user_or_admin)  # Changed: current -> current_user
 ):
     # Validate file type
     if not file.content_type.startswith('image/'):
