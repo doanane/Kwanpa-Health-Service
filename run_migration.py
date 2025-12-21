@@ -1,7 +1,6 @@
 import sys
 import os
 
-# Add the app directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from migrations_001_initial_schema import create_tables

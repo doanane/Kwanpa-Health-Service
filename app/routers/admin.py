@@ -15,19 +15,19 @@ async def create_doctor(
     specialization: str,
     hospital: str,
     email: str = None,
-    current_admin = Depends(get_current_admin),  # Change to get_current_admin
+    current_admin = Depends(get_current_admin),  
     db: Session = Depends(get_db)
 ):
     """Create a new doctor (requires admin JWT token)"""
     
-    # Check if current admin is superadmin
+    
     if not hasattr(current_admin, 'is_superadmin') or not current_admin.is_superadmin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only superadmins can create doctors"
         )
     
-    # Also check if admin is active
+    
     if not current_admin.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -40,7 +40,7 @@ async def create_doctor(
             detail="Doctor ID must be 8 characters"
         )
     
-    # Ensure doctor_id starts with DOC
+    
     if not doctor_id.startswith("DOC"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -57,7 +57,7 @@ async def create_doctor(
     initial_password = secrets.token_urlsafe(8)
     hashed_password = get_password_hash(initial_password)
     
-    # Create doctor data dict
+    
     doctor_data = {
         "doctor_id": doctor_id,
         "hashed_password": hashed_password,
@@ -68,7 +68,7 @@ async def create_doctor(
         "is_active": True
     }
     
-    # Add email only if provided
+    
     if email:
         doctor_data["email"] = email
     
@@ -92,12 +92,12 @@ async def create_doctor(
 
 @router.get("/doctors")
 async def list_doctors(
-    current_admin = Depends(get_current_admin),  # Change to get_current_admin
+    current_admin = Depends(get_current_admin),  
     db: Session = Depends(get_db)
 ):
     """List all doctors (requires admin JWT token)"""
     
-    # Check if admin is active
+    
     if not current_admin.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

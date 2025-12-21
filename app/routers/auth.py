@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 import secrets
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request, Query
 import string
-from typing import Optional
+from typing import Optional, Union
 import jwt
 from app.database import get_db
-from app.auth.security import create_access_token, verify_password, get_password_hash, get_current_user
+from app.auth.security import create_access_token, verify_password, get_password_hash, get_current_user,    get_current_admin, get_current_user_or_admin,get_current_active_user_or_admin 
 from app.auth.hashing import verify_password as verify_pass, get_password_hash as get_pass_hash
 from app.models.user import User
 from app.models.auth import PasswordResetToken, EmailVerificationToken, LoginOTP, RefreshToken, UserSession
@@ -19,6 +19,7 @@ from pydantic import BaseModel, EmailStr, Field, validator
 import uuid
 from fastapi.responses import HTMLResponse, RedirectResponse
 import os
+from app.models.admin import Admin
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -974,20 +975,30 @@ async def verify_otp_login(
 @router.post("/change-password")
 async def change_password(
     request_data: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
+    current: Union[User, Admin] = Depends(get_current_user_or_admin),  # Changed this
     db: Session = Depends(get_db)
 ):
-    """Change password (requires current password)"""
-    if not verify_pass(request_data.current_password, current_user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
-        )
+    """Change password (works for both users and admins)"""
+    from app.auth.hashing import verify_password as verify_pass
     
-    current_user.hashed_password = get_pass_hash(request_data.new_password)
-    
-    # Invalidate all refresh tokens
-    db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).update({"is_revoked": True})
+    # Check current password
+    if isinstance(current, Admin):
+        if not verify_pass(request_data.current_password, current.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        current.hashed_password = get_pass_hash(request_data.new_password)
+    else:
+        if not verify_pass(request_data.current_password, current.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        current.hashed_password = get_pass_hash(request_data.new_password)
+        
+        # Invalidate all refresh tokens for users
+        db.query(RefreshToken).filter(RefreshToken.user_id == current.id).update({"is_revoked": True})
     
     db.commit()
     
@@ -1032,46 +1043,75 @@ async def refresh_token(
 
 @router.post("/logout")
 async def logout(
-    current_user: User = Depends(get_current_user),
+    current: Union[User, Admin] = Depends(get_current_user_or_admin),  # Changed this
     db: Session = Depends(get_db)
 ):
-    """Logout user (revoke refresh tokens)"""
-    # Revoke all refresh tokens
-    db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).update({"is_revoked": True})
+    """Logout user or admin"""
+    if isinstance(current, Admin):
+        # Admin logout logic (if you have admin sessions)
+        return {"message": "Admin logged out successfully"}
     
-    # Mark all sessions as inactive
-    db.query(UserSession).filter(UserSession.user_id == current_user.id).update({"is_active": False})
-    
+    # Original user logout logic
+    db.query(RefreshToken).filter(RefreshToken.user_id == current.id).update({"is_revoked": True})
+    db.query(UserSession).filter(UserSession.user_id == current.id).update({"is_active": False})
     db.commit()
     
     return {"message": "Logged out successfully"}
 
+
 @router.get("/me")
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
+    current: Union[User, Admin] = Depends(get_current_user_or_admin)  # Changed this
 ):
-    """Get current user information"""
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "username": current_user.username,
-        "patient_id": current_user.patient_id,
-        "is_email_verified": current_user.is_email_verified,
-        "is_active": current_user.is_active,
-        "is_caregiver": current_user.is_caregiver,
-        "phone_number": current_user.phone_number,
-        "last_login": current_user.last_login,
-        "created_at": current_user.created_at
-    }
+    """Get current user or admin information"""
+    if isinstance(current, Admin):
+        # Return admin info
+        return {
+            "id": current.id,
+            "email": current.email,
+            "full_name": current.full_name,
+            "is_superadmin": current.is_superadmin,
+            "is_active": current.is_active,
+            "user_type": "admin",
+            "last_login": current.last_login,
+            "created_at": current.created_at
+        }
+    else:
+        # Return user info
+        return {
+            "id": current.id,
+            "email": current.email,
+            "username": current.username,
+            "patient_id": current.patient_id,
+            "is_email_verified": current.is_email_verified,
+            "is_active": current.is_active,
+            "is_caregiver": current.is_caregiver,
+            "phone_number": current.phone_number,
+            "last_login": current.last_login,
+            "created_at": current.created_at,
+            "user_type": "user"
+        }
 
 @router.get("/sessions")
 async def get_user_sessions(
-    current_user: User = Depends(get_current_user),
+    current: Union[User, Admin] = Depends(get_current_user_or_admin),  # Changed this
     db: Session = Depends(get_db)
 ):
-    """Get user's active sessions"""
+    """Get user's active sessions (also works for admin)"""
+    # If it's an admin, they might not have sessions in UserSession table
+    # So we return empty or create admin-specific session logic
+    if isinstance(current, Admin):
+        # Admin sessions might be handled differently
+        # For now, return empty or mock data
+        return {
+            "message": "Admin sessions are managed separately",
+            "admin_id": current.id,
+            "sessions": []
+        }
+    
+    # Original user session logic
     sessions = db.query(UserSession).filter(
-        UserSession.user_id == current_user.id,
+        UserSession.user_id == current.id,
         UserSession.is_active == True,
         UserSession.expires_at > datetime.utcnow()
     ).order_by(UserSession.last_activity.desc()).all()
@@ -1086,7 +1126,6 @@ async def get_user_sessions(
         }
         for session in sessions
     ]
-
 # Add these imports at the top of app/routers/auth.py
 from fastapi.responses import HTMLResponse, RedirectResponse
 
