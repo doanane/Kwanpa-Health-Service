@@ -28,7 +28,7 @@ class EmailService:
     def send_email(self, to_email: str, subject: str, html_content: str, text_content: Optional[str] = None):
         """Send an email using SendGrid"""
         
-        # DEBUG: Check if client exists
+        
         logger.info(f"DEBUG: SendGrid client exists: {self.sendgrid_client is not None}")
         logger.info(f"DEBUG: API Key configured: {hasattr(settings, 'SENDGRID_API_KEY')}")
         
@@ -36,12 +36,12 @@ class EmailService:
             logger.error("❌ SendGrid client not initialized. Check SENDGRID_API_KEY in .env")
             logger.info(f"📧 Email WOULD be sent to {to_email}: {subject}")
             logger.info(f"HTML preview: {html_content[:200]}...")
-            return False  # Return False to trigger fallback
+            return False  
         
         try:
             from sendgrid.helpers.mail import Mail, From, To, Subject, HtmlContent, Content
             
-            # Create email
+            
             message = Mail(
                 from_email=From(self.from_email, "HEWAL3 Health System"),
                 to_emails=To(to_email),
@@ -49,11 +49,11 @@ class EmailService:
                 html_content=HtmlContent(html_content)
             )
             
-            # Add text content if provided
+            
             if text_content:
                 message.content = Content("text/plain", text_content)
             
-            # Send email
+            
             response = self.sendgrid_client.send(message)
             
             if response.status_code in [200, 201, 202]:
@@ -75,12 +75,12 @@ class EmailService:
         <html>
         <head>
             <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: 
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 30px; background-color: #f9f9f9; }}
-                .button {{ display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-                .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
+                .header {{ background-color: 
+                .content {{ padding: 30px; background-color: 
+                .button {{ display: inline-block; padding: 12px 24px; background-color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ text-align: center; padding: 20px; color: 
             </style>
         </head>
         <body>
@@ -96,7 +96,7 @@ class EmailService:
                         <a href="{verification_link}" class="button">Verify Email Address</a>
                     </p>
                     <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-                    <p style="word-break: break-all; color: #4CAF50;">{verification_link}</p>
+                    <p style="word-break: break-all; color: 
                     <p>This link will expire in 24 hours.</p>
                     <p>If you didn't create an account with HEWAL3, please ignore this email.</p>
                 </div>
@@ -138,30 +138,30 @@ class EmailService:
         <html>
         <head>
             <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: 
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 30px; background-color: #f9f9f9; }}
+                .header {{ background-color: 
+                .content {{ padding: 30px; background-color: 
                 .otp-box {{ 
                     font-size: 32px; 
                     font-weight: bold; 
                     text-align: center; 
                     padding: 20px; 
                     background: white; 
-                    border: 3px dashed #4CAF50; 
+                    border: 3px dashed 
                     margin: 20px 0; 
                     letter-spacing: 5px;
                 }}
                 .button {{ 
                     display: inline-block; 
                     padding: 12px 24px; 
-                    background-color: #4CAF50; 
+                    background-color: 
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
                     margin: 20px 0; 
                 }}
-                .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
+                .footer {{ text-align: center; padding: 20px; color: 
             </style>
         </head>
         <body>
@@ -222,13 +222,13 @@ class EmailService:
         <html>
         <head>
             <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: 
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #ff6b6b; color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 30px; background-color: #f9f9f9; }}
-                .button {{ display: inline-block; padding: 12px 24px; background-color: #ff6b6b; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-                .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
-                .warning {{ color: #ff6b6b; font-weight: bold; }}
+                .header {{ background-color: 
+                .content {{ padding: 30px; background-color: 
+                .button {{ display: inline-block; padding: 12px 24px; background-color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ text-align: center; padding: 20px; color: 
+                .warning {{ color: 
             </style>
         </head>
         <body>
@@ -244,7 +244,7 @@ class EmailService:
                         <a href="{reset_link}" class="button">Reset Password</a>
                     </p>
                     <p>If the button doesn't work, copy and paste this link:</p>
-                    <p style="word-break: break-all; color: #ff6b6b;">{reset_link}</p>
+                    <p style="word-break: break-all; color: 
                     <p class="warning">This link will expire in 1 hour. If you didn't request a password reset, please ignore this email.</p>
                     <p>For your security, never share your password or this reset link with anyone.</p>
                 </div>
@@ -273,5 +273,5 @@ class EmailService:
         
         return self.send_email(user_email, "Reset Your HEWAL3 Password", html_content, text_content)
 
-# Create a singleton instance
+
 email_service = EmailService()

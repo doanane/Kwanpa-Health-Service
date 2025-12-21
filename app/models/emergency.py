@@ -10,11 +10,11 @@ class EmergencyContact(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(String)
     phone_number = Column(String)
-    relationship_type = Column(String)  # Changed from 'relationship' to avoid conflict
+    relationship_type = Column(String)  
     is_primary = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Use string reference
+    
     user_rel = relationship("User", back_populates="emergency_contacts")
 
 class EmergencyEvent(Base):
@@ -29,5 +29,5 @@ class EmergencyEvent(Base):
     triggered_at = Column(DateTime(timezone=True), server_default=func.now())
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     
-    # Use string reference
+    
     user_rel = relationship("User", back_populates="emergency_events")
