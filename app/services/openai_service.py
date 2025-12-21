@@ -13,7 +13,7 @@ class OpenAIService:
         self.deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-chat")
         self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
         
-        
+        # Validate credentials
         if not self.endpoint or not self.api_key:
             logger.warning("Azure OpenAI credentials not found in environment variables")
     
@@ -24,7 +24,7 @@ class OpenAIService:
         """
         logger.info(f"Analyzing food for chronic disease: {food_name}")
         
-        
+        # Get chronic conditions
         chronic_conditions = []
         if user_data and user_data.get('chronic_conditions'):
             conditions = user_data['chronic_conditions']
@@ -37,11 +37,12 @@ class OpenAIService:
                 except:
                     chronic_conditions = [conditions]
         
-        
+        # Build the complete analysis prompt
         conditions_text = ", ".join(chronic_conditions) if chronic_conditions else "chronic conditions"
         age = user_data.get('age', 'adult') if user_data else 'adult'
         
-        
+
+        # In the analyze_food_for_chronic_disease method, update the prompt:
         prompt = f"""
         Analyze this Ghanaian food for a patient with chronic diseases.
 
@@ -68,7 +69,7 @@ class OpenAIService:
         5. Each section should be 1-2 complete sentences
         """
 
-        
+        # Also update the system message to be more strict:
         messages = [
             {
                 "role": "system", 
@@ -78,18 +79,18 @@ class OpenAIService:
         ]
         
         try:
-            
+            # Call OpenAI
             response_text = self._call_openai(messages, max_tokens=400)
             logger.info(f"OpenAI raw response: {response_text[:200]}...")
             
-            
+            # Parse the response
             parsed_data = self._parse_complete_analysis(response_text)
             
-            
+            # Add calculated fields
             parsed_data["is_balanced"] = self._is_food_balanced(food_name, chronic_conditions)
             parsed_data["diet_score"] = self._calculate_diet_score(parsed_data.get("nutrients", {}), chronic_conditions)
             
-            
+            # Clean all text fields
             parsed_data = self._clean_all_text_fields(parsed_data)
             
             return parsed_data
@@ -138,50 +139,58 @@ class OpenAIService:
             "key_nutrients_to_watch": []
         }
         
+        # First, clean the entire text to remove numbers
+        text = self._remove_numbered_lists(text)
+        
         current_section = None
         lines = text.split('\n')
         
         for line in lines:
             line = line.strip()
             
+            # Remove any remaining numbers at start
+            line = re.sub(r'^\d+\.\s*', '', line)
             
-            if "DESCRIPTION:" in line.upper():
+            # Detect section headers (case insensitive)
+            if "description:" in line.lower():
                 current_section = "description"
-                line = line.replace("DESCRIPTION:", "").strip()
-            elif "NUTRIENT ANALYSIS:" in line.upper() or "NUTRIENTS:" in line.upper():
+                line = re.sub(r'description:', '', line, flags=re.IGNORECASE).strip()
+            elif "nutrient analysis:" in line.lower() or "nutrients:" in line.lower():
                 current_section = "nutrients"
-                line = line.replace("NUTRIENT ANALYSIS:", "").replace("NUTRIENTS:", "").strip()
-            elif "CHRONIC DISEASE IMPACT:" in line.upper():
+                line = re.sub(r'nutrient analysis:|nutrients:', '', line, flags=re.IGNORECASE).strip()
+            elif "chronic disease impact:" in line.lower():
                 current_section = "chronic_disease_impact"
-                line = line.replace("CHRONIC DISEASE IMPACT:", "").strip()
-            elif "IMMEDIATE RECOMMENDATION:" in line.upper():
+                line = re.sub(r'chronic disease impact:', '', line, flags=re.IGNORECASE).strip()
+            elif "immediate recommendation:" in line.lower():
                 current_section = "immediate_recommendation"
-                line = line.replace("IMMEDIATE RECOMMENDATION:", "").strip()
-            elif "PORTION GUIDANCE:" in line.upper():
+                line = re.sub(r'immediate recommendation:', '', line, flags=re.IGNORECASE).strip()
+            elif "portion guidance:" in line.lower():
                 current_section = "portion_guidance"
-                line = line.replace("PORTION GUIDANCE:", "").strip()
-            elif "BALANCING ADVICE:" in line.upper():
+                line = re.sub(r'portion guidance:', '', line, flags=re.IGNORECASE).strip()
+            elif "balancing advice:" in line.lower():
                 current_section = "balancing_advice"
-                line = line.replace("BALANCING ADVICE:", "").strip()
-            elif "HEALTHIER ALTERNATIVE:" in line.upper():
+                line = re.sub(r'balancing advice:', '', line, flags=re.IGNORECASE).strip()
+            elif "healthier alternative:" in line.lower():
                 current_section = "healthier_alternative"
-                line = line.replace("HEALTHIER ALTERNATIVE:", "").strip()
-            elif "WARNING LEVEL:" in line.upper():
+                line = re.sub(r'healthier alternative:', '', line, flags=re.IGNORECASE).strip()
+            elif "warning level:" in line.lower():
                 current_section = "warning_level"
-                line = line.replace("WARNING LEVEL:", "").strip().lower()
-            elif "KEY NUTRIENTS TO WATCH:" in line.upper():
+                line = re.sub(r'warning level:', '', line, flags=re.IGNORECASE).strip().lower()
+            elif "key nutrients to watch:" in line.lower():
                 current_section = "key_nutrients_to_watch"
-                line = line.replace("KEY NUTRIENTS TO WATCH:", "").strip()
+                line = re.sub(r'key nutrients to watch:', '', line, flags=re.IGNORECASE).strip()
             
-            
+            # Add content to current section
             if current_section and line:
-                if current_section == "nutrients":
+                # Skip if line is just a number
+                if re.match(r'^\d+$', line):
+                    continue
                     
+                if current_section == "nutrients":
                     nutrients = self._extract_nutrients_from_text(line)
                     if nutrients:
                         sections["nutrients"] = nutrients
                 elif current_section == "key_nutrients_to_watch":
-                    
                     nutrients = [n.strip() for n in re.split(',|;|and', line) if n.strip()]
                     sections["key_nutrients_to_watch"] = nutrients
                 elif current_section == "warning_level":
@@ -198,6 +207,25 @@ class OpenAIService:
                         sections[current_section] = line
         
         return sections
+
+    def _remove_numbered_lists(self, text: str) -> str:
+        """Remove numbered lists from text"""
+        lines = text.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            # Remove lines that are just numbers
+            if re.match(r'^\d+\.?$', line.strip()):
+                continue
+            
+            # Remove numbers at start of lines
+            line = re.sub(r'^\d+\.\s*', '', line)
+            line = re.sub(r'^\d+\)\s*', '', line)
+            
+            if line.strip():
+                cleaned_lines.append(line)
+        
+        return '\n'.join(cleaned_lines)
     
     def _extract_nutrients_from_text(self, text: str) -> Dict[str, Any]:
         """Extract nutrient values from text"""
@@ -209,7 +237,7 @@ class OpenAIService:
             "type": "unknown"
         }
         
-        
+        # Look for numbers in the text
         import re
         numbers = re.findall(r'\b(\d+)\s*(calories?|kcal|carbs?|carbohydrates?|protein|fat|g\b)', text.lower())
         
@@ -230,12 +258,12 @@ class OpenAIService:
         """Check if food is balanced for conditions"""
         food_lower = food_name.lower()
         
-        
+        # High-carb foods are less balanced for diabetics
         if any('diabet' in str(c).lower() for c in conditions):
             if any(starch in food_lower for starch in ['rice', 'omotuo', 'banku', 'fufu', 'yam']):
                 return False
         
-        
+        # High-sodium foods are less balanced for hypertension
         if any('hypertens' in str(c).lower() or 'blood pressure' in str(c).lower() for c in conditions):
             if 'soup' in food_lower or 'stew' in food_lower:
                 return False
@@ -246,7 +274,7 @@ class OpenAIService:
         """Calculate diet score 0-100"""
         base_score = 70
         
-        
+        # Score based on nutrients
         calories = nutrients.get("calories", 300)
         if 250 <= calories <= 400:
             base_score += 10
@@ -263,12 +291,12 @@ class OpenAIService:
         if protein >= 15:
             base_score += 10
         
-        
+        # Adjust for conditions
         if any('diabet' in str(c).lower() for c in conditions) and carbs > 50:
             base_score -= 20
         
         if any('hypertens' in str(c).lower() for c in conditions):
-            base_score += 5  
+            base_score += 5  # Encourage monitoring
         
         return max(0, min(100, base_score))
     
@@ -276,7 +304,7 @@ class OpenAIService:
         """Fallback analysis when OpenAI fails"""
         food_lower = food_name.lower()
         
-        
+        # Default nutrients
         nutrients = {
             "calories": 300,
             "carbs": 45,
@@ -285,7 +313,7 @@ class OpenAIService:
             "type": "unknown"
         }
         
-        
+        # Adjust based on known foods
         if 'omotuo' in food_lower or 'rice' in food_lower:
             nutrients = {"calories": 280, "carbs": 55, "protein": 8, "fat": 6, "type": "high_starch"}
             description = "Omotuo are soft rice balls, a traditional Ghanaian dish often served with soup."
@@ -300,7 +328,7 @@ class OpenAIService:
             balance = "Include vegetables and protein sources."
             alternative = "Consider healthier preparation methods."
         
-        
+        # Determine warning level
         warning = "low"
         key_nutrients = ["calories", "protein"]
         
@@ -340,17 +368,50 @@ class OpenAIService:
         return cleaned
     
     def _clean_text(self, text: str) -> str:
-        """Remove all markdown and formatting"""
+        """Remove all formatting, numbers, and clean text"""
         if not text:
             return text
         
-        
+        # Remove all markdown and special characters
         text = re.sub(r'[\*\#\`\[\]\(\)]', '', text)
         
+        # Remove numbered lists (1., 2., 3., etc.)
+        text = re.sub(r'^\d+\.\s*', '', text, flags=re.MULTILINE)
         
-        text = ' '.join(text.split())
+        # Remove any remaining numbers at start of sentences
+        text = re.sub(r'^(\d+)\s+', '', text, flags=re.MULTILINE)
         
-        return text.strip()
+        # Split into lines and clean each
+        lines = text.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Remove common list markers
+            if line.startswith('- '):
+                line = line[2:]
+            elif line.startswith('• '):
+                line = line[2:]
+            elif line.startswith('* '):
+                line = line[2:]
+            
+            # Remove any numbers followed by punctuation at start
+            line = re.sub(r'^\d+[\.\)]\s*', '', line)
+            
+            if line:
+                # Ensure proper sentence ending
+                if not line.endswith(('.', '!', '?', ':')):
+                    line = line + '.'
+                cleaned_lines.append(line)
+        
+        # Join with spaces
+        cleaned_text = ' '.join(cleaned_lines)
+        
+        # Remove extra whitespace
+        cleaned_text = ' '.join(cleaned_text.split())
+        
+        return cleaned_text.strip()
     
     def _call_openai(self, messages: List[Dict], max_tokens: int = 300) -> str:
         """Call Azure OpenAI API"""
@@ -377,3 +438,4 @@ class OpenAIService:
         except Exception as e:
             logger.error(f"OpenAI API call failed: {str(e)}")
             raise
+
