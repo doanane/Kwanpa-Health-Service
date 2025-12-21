@@ -6,16 +6,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FoodAnalyzer:
-    # Store keys as class attributes
+    # UPDATED: Use the exact names from your .env file
     PREDICTION_ENDPOINT = os.getenv(
-        "CUSTOM_VISION_ENDPOINT",
-        "https://imaginhewale26.cognitiveservices.azure.com/customvision/v3.0/Prediction/e16cef67-9b7b-4082-8d67-b8c61c1c6407/classify/iterations/imaginhewale26/image"
-    )
+        "AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT")
     
     PREDICTION_KEY = os.getenv(
-        "CUSTOM_VISION_KEY", 
-        "AZURE_CUSTOM_VISION_PREDICTION_KEY"
-    )
+        "AZURE_CUSTOM_VISION_PREDICTION_KEY")
+    
+    # UPDATED: Add GEMINI_API_KEY
+    GEMINI_API_KEY = os.getenv(
+        "GEMINI_API")
 
     FOOD_CATEGORY_MAP = {
         "Tatale_Ghana": "high_starch",
@@ -29,7 +29,9 @@ class FoodAnalyzer:
         "Kontomire_stew_Ghana": "protein",
         "Kenkey_Ghana": "high_starch",
         "Groundnut_soup_Ghana": "protein",
-        "Palm_nut_soup_Ghana": "protein"
+        "Palm_nut_soup_Ghana": "protein",
+        # ADD THIS: Map "Okro_Stew_Ghana" that your model returns
+        "Okro_Stew_Ghana": "protein"  # New addition
     }
 
     @classmethod
@@ -37,6 +39,10 @@ class FoodAnalyzer:
         """
         Send image to Custom Vision Prediction API
         """
+        # Log the credentials being used (remove in production)
+        logger.info(f"Using endpoint: {cls.PREDICTION_ENDPOINT[:50]}...")
+        logger.info(f"Using key: {cls.PREDICTION_KEY[:10]}...")
+        
         # Validate endpoint and key
         if not cls.PREDICTION_ENDPOINT or not cls.PREDICTION_KEY:
             logger.error("Custom Vision credentials not configured")
@@ -54,15 +60,18 @@ class FoodAnalyzer:
                     cls.PREDICTION_ENDPOINT,
                     headers=headers,
                     data=image_data,
-                    timeout=30  # Increased timeout
+                    timeout=30
                 )
                 
                 # Check response status
                 if response.status_code != 200:
-                    logger.error(f"Custom Vision API error: {response.status_code}")
+                    logger.error(f"Custom Vision API error: {response.status_code} - {response.text}")
                     return cls._get_fallback_response(f"API Error: {response.status_code}")
                 
                 result = response.json()
+            
+            # Log the full response for debugging
+            logger.debug(f"Custom Vision raw response: {result}")
             
             # Check if we have predictions
             if "predictions" not in result or not result["predictions"]:
@@ -78,18 +87,23 @@ class FoodAnalyzer:
             
             logger.info(f"Custom Vision detected: {food_label} ({confidence}%)")
             
-            # If confidence is too low, use fallback
-            if confidence < 40:
-                logger.warning(f"Low confidence: {confidence}%")
-                guessed_food = cls._guess_food_from_name(food_label)
-                if guessed_food != "Unknown":
-                    food_label = guessed_food
-                    confidence = 60  # Boost confidence for guessed food
-                else:
-                    return cls._get_fallback_response(f"Low confidence detection ({confidence}%)")
+            # SPECIAL FIX: If it's Okro Stew but looks like Jollof Rice
+            if food_label == "Okro_Stew_Ghana" and confidence < 70:
+                # Try to check if it might be jollof rice
+                # You could add image analysis here, but for now, guess based on name
+                logger.info(f"Low confidence Okro Stew detected ({confidence}%). Checking if it might be jollof...")
+                # Add this logic if you want to override
+                if "rice" in food_label.lower() or "jollof" in food_label.lower():
+                    food_label = "Jollof_rice_Ghana"
+                    confidence = 65  # Set reasonable confidence
             
             # Map to category
             category = cls.FOOD_CATEGORY_MAP.get(food_label, "unknown")
+            
+            # If category is unknown but we recognize part of the name
+            if category == "unknown":
+                food_label = cls._guess_food_from_name(food_label)
+                category = cls.FOOD_CATEGORY_MAP.get(food_label, "unknown")
             
             # Generate recommendations
             tips = cls._get_recommendations_for_category(category, food_label)
@@ -100,7 +114,8 @@ class FoodAnalyzer:
                 "confidence": confidence,
                 "analysis": "Food inference completed via Custom Vision",
                 "recommendations": tips,
-                "is_balanced": category == "balanced"
+                "is_balanced": category == "balanced",
+                "raw_tag": food_label  # Keep original for debugging
             }
             
         except FileNotFoundError:
@@ -134,7 +149,7 @@ class FoodAnalyzer:
         food_lower = food_label.lower()
         
         # Common misclassifications
-        if "rice" in food_lower and "jollof" not in food_lower:
+        if "rice" in food_lower:
             return "Jollof_rice_Ghana"
         elif "soup" in food_lower and "light" in food_lower:
             return "Light_soup_Ghana"
@@ -144,6 +159,8 @@ class FoodAnalyzer:
             return "Omotuo_Ghana"
         elif "plantain" in food_lower:
             return "Kelewele_Ghana"
+        elif "okro" in food_lower or "okra" in food_lower:
+            return "Okro_Stew_Ghana"  # Map to newly added category
         
         return "Unknown"
     
@@ -180,14 +197,13 @@ class FoodAnalyzer:
     def get_daily_tip(cls, user_logs: dict) -> str:
         """
         Provide a daily health tip using Gemini (Google Generative AI) API.
-        Fallback to static tips if API fails.
         """
         try:
             import google.generativeai as genai
-            # Try to get API key from environment
-            api_key = os.getenv("GEMINI_API_KEY", "GEMINI_API")
+            # UPDATED: Use GEMINI_API_KEY from class attribute
+            api_key = cls.GEMINI_API_KEY
             
-            if api_key and api_key != "GEMINI_API":
+            if api_key:
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel("gemini-pro")
                 
