@@ -9,6 +9,13 @@ class Settings(BaseModel):
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     
+    # Azure Custom Vision
+    AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT: str = os.getenv("AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT", "")
+    AZURE_CUSTOM_VISION_PREDICTION_KEY: str = os.getenv("AZURE_CUSTOM_VISION_PREDICTION_KEY", "")
+    
+    # Gemini AI
+    GEMINI_API: str = os.getenv("GEMINI_API", "")
+
     # JWT Authentication
     SECRET_KEY: str = os.getenv("SECRET_KEY", "-GHyAbetQfDupfx6XXyDkSu0vVkKzmdG4kIMYp7Q13A")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
@@ -53,6 +60,10 @@ class Settings(BaseModel):
     AZURE_AI_VISION_KEY: str = os.getenv("AZURE_AI_VISION_KEY", "")
     AZURE_OPENAI_ENDPOINT: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
     AZURE_OPENAI_KEY: str = os.getenv("AZURE_OPENAI_KEY", "")
+    
+    AZURE_OPENAI_DEPLOYMENT: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "")
+
+    AZURE_OPENAI_API_VERSION: str = os.getenv("AZURE_OPENAI_API_VERSION", "")
     
     # IoT Hub
     AZURE_IOT_HUB_CONNECTION_STRING: str = os.getenv("AZURE_IOT_HUB_CONNECTION_STRING", "")
