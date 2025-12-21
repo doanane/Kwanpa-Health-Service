@@ -5,17 +5,20 @@ import uuid
 import os
 from datetime import datetime
 import tempfile
+import logging
 
 from app.database import get_db
 from app.auth.security import get_current_active_user
-from app.models.user import User
+from app.models.user import User, UserProfile
 from app.models.health import FoodLog
-from app.services.azure_ai import azure_ai_service
-from app.schemas.health import FoodLogResponse
-import logging
+from app.utils.ai_food_analysis import FoodAnalyzer
+from app.services.openai_service import OpenAIService
+import json
 
 logger = logging.getLogger(__name__)
 
+# Initialize services
+openai_service = OpenAIService()
 router = APIRouter(prefix="/api", tags=["food_analysis"])
 
 @router.post("/analyze-meal", response_model=dict)
@@ -25,125 +28,146 @@ async def analyze_meal(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Analyze a meal image using Azure AI Vision.
+    """Analyze a meal image using Custom Vision and OpenAI"""
     
-    This endpoint:
-    1. Accepts an image upload
-    2. Sends it to Azure AI Vision for analysis
-    3. Returns food tags and nutritional estimates
-    4. Saves the analysis to the database
-    """
-    
-    # Validate file type
-    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    # Validate file
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png']
     if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type. Allowed: {', '.join(allowed_types)}"
-        )
+        raise HTTPException(400, f"Unsupported file type. Allowed: {', '.join(allowed_types)}")
     
-    # Validate file size (max 10MB)
-    max_size = 10 * 1024 * 1024  # 10MB
-    file.file.seek(0, 2)  # Seek to end
-    file_size = file.file.tell()
-    file.file.seek(0)  # Reset to beginning
+    # Check size (10MB max)
+    max_size = 10 * 1024 * 1024
+    file.file.seek(0, 2)
+    if file.file.tell() > max_size:
+        raise HTTPException(400, "File too large. Maximum size is 10MB")
+    file.file.seek(0)
     
-    if file_size > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Maximum size is 10MB"
-        )
-    
-    # Create temp file for processing
+    # Save to temp file
     temp_dir = tempfile.gettempdir()
     file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
     temp_filename = f"meal_{uuid.uuid4().hex}.{file_extension}"
     temp_path = os.path.join(temp_dir, temp_filename)
     
     try:
-        # Save uploaded file temporarily
+        # Save file
         with open(temp_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
         
-        logger.info(f"Processing meal image for user {current_user.id}: {temp_path}")
+        logger.info(f"Processing meal image for user {current_user.id}")
         
-        # Analyze image with Azure AI
-        analysis_result = azure_ai_service.analyze_food_image(temp_path)
+
+        try:
+            vision_result = FoodAnalyzer.analyze_food_image(temp_path)
+            detected_food = vision_result.get("food", "Unknown")
+            confidence = vision_result.get("confidence", 0)
+            
+            # If food is "Unknown" or confidence is too low, try fallback
+            if detected_food == "Unknown" or confidence < 40:
+                logger.warning(f"Custom Vision returned Unknown ({confidence}%). Trying fallback...")
+                
+                # Try to guess from image features
+                try:
+                    guessed_food = FoodAnalyzer.guess_food_from_image_features(temp_path)
+                    if guessed_food != "Unknown":
+                        detected_food = guessed_food
+                        confidence = 50  # Set medium confidence for guess
+                        logger.info(f"Image analysis guessed: {detected_food}")
+                except Exception as guess_error:
+                    logger.error(f"Image guess failed: {str(guess_error)}")
+            
+            # If still unknown, ask user
+            if detected_food == "Unknown" or detected_food == "Unknown_Ghanaian_food":
+                # You could return an error asking for manual input
+                raise HTTPException(
+                    status_code=400,
+                    detail="Could not identify the food. Please: 1) Upload a clearer image, or 2) Use the manual log feature"
+                )
+            
+            category = vision_result.get("category", "unknown")
+            logger.info(f"Food detected: {detected_food} ({confidence}%)")
+            
+        except Exception as e:
+            logger.error(f"Food detection failed: {str(e)}")
+            raise HTTPException(500, "Food identification failed. Please try again or use manual logging.")
         
-        if not analysis_result:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to analyze image. Please try again."
-            )
-        
-        # Get user profile for personalized recommendations
-        from app.models.user import UserProfile
+        # Step 2: Get user profile for personalized analysis
         user_profile = db.query(UserProfile).filter(
             UserProfile.user_id == current_user.id
         ).first()
         
-        # Prepare user data for personalized recommendations
         user_data = {}
         if user_profile:
             user_data = {
-                'age': user_profile.age,
-                'chronic_conditions': user_profile.chronic_conditions or [],
-                'gender': user_profile.gender
+                'age': getattr(user_profile, 'age', None),
+                'chronic_conditions': getattr(user_profile, 'chronic_conditions', []),
+                'gender': getattr(user_profile, 'gender', 'unknown')
             }
         
-        # Get personalized health recommendation
-        recommendation = azure_ai_service.get_health_recommendation(
-            user_data, 
-            analysis_result
-        )
+        # Step 3: Get comprehensive analysis from OpenAI
+        try:
+            ai_analysis = openai_service.analyze_food_for_chronic_disease(detected_food, user_data)
+            logger.info(f"OpenAI analysis completed for {detected_food}")
+        except Exception as e:
+            logger.error(f"OpenAI analysis failed: {str(e)}")
+            # Use fallback analysis
+            ai_analysis = openai_service._get_complete_fallback_analysis(detected_food, 
+                user_data.get('chronic_conditions', []))
         
-        # Calculate diet score based on analysis
-        diet_score = calculate_diet_score(analysis_result, user_data)
+        # Step 4: Prepare response
+        response = {
+            "analysis_id": f"meal_{datetime.now().timestamp()}",
+            "meal_type": meal_type,
+            "detected_food": detected_food,
+            "description": ai_analysis.get("description", f"A plate of {detected_food.replace('_', ' ')}"),
+            "tags": [category, detected_food.replace('_', ' ').lower()],
+            "nutrients": ai_analysis.get("nutrients", {}),
+            "confidence": confidence,
+            "diet_score": ai_analysis.get("diet_score", 70),
+            
+            # Recommendations from OpenAI
+            "primary_recommendation": ai_analysis.get("immediate_recommendation", ""),
+            "secondary_recommendation": ai_analysis.get("balancing_advice", ""),
+            
+            # Detailed analysis
+            "detailed_analysis": {
+                "chronic_disease_impact": ai_analysis.get("chronic_disease_impact", ""),
+                "portion_guidance": ai_analysis.get("portion_guidance", ""),
+                "healthier_alternative": ai_analysis.get("healthier_alternative", ""),
+                "warning_level": ai_analysis.get("warning_level", "low"),
+                "key_nutrients_to_watch": ai_analysis.get("key_nutrients_to_watch", [])
+            },
+            
+            "is_balanced": ai_analysis.get("is_balanced", True),
+            "analysis_source": "azure_custom_vision + azure_openai",
+            "timestamp": datetime.now().isoformat(),
+            "category": category
+        }
         
-        # Save to database
+        # Step 5: Save to database
         food_log = FoodLog(
             user_id=current_user.id,
             meal_type=meal_type,
-            food_image_url=temp_path,  # In production, upload to Azure Blob Storage
-            ai_analysis=analysis_result,
-            diet_score=diet_score,
-            nutrients=analysis_result.get('nutrients', {}),
+            food_image_url=temp_path,
+            ai_analysis=response,
+            diet_score=response["diet_score"],
+            nutrients=response["nutrients"],
             created_at=datetime.now()
         )
         
         db.add(food_log)
         db.commit()
         db.refresh(food_log)
+        response["analysis_id"] = food_log.id
         
-        # Prepare response
-        response = {
-            "analysis_id": food_log.id,
-            "meal_type": meal_type,
-            "detected_food": analysis_result.get('detected_food', 'Unknown'),
-            "description": analysis_result.get('description', ''),
-            "tags": analysis_result.get('tags', []),
-            "nutrients": analysis_result.get('nutrients', {}),
-            "confidence": analysis_result.get('confidence', 0),
-            "diet_score": diet_score,
-            "recommendation": recommendation,
-            "analysis_source": analysis_result.get('analysis_source', 'azure_ai'),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        logger.info(f"Meal analysis completed for user {current_user.id}: {analysis_result.get('detected_food')}")
-        
+        logger.info(f"✅ Analysis completed for user {current_user.id}: {detected_food}")
         return response
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error analyzing meal image: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
-        )
+        logger.error(f"Analysis failed: {str(e)}", exc_info=True)
+        raise HTTPException(500, f"Analysis failed: {str(e)}")
     finally:
         # Clean up temp file
         try:
@@ -152,6 +176,51 @@ async def analyze_meal(
         except:
             pass
 
+@router.get("/daily-tip")
+async def get_daily_tip(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get personalized daily health tip"""
+    
+    user_profile = db.query(UserProfile).filter(
+        UserProfile.user_id == current_user.id
+    ).first()
+    
+    user_data = {}
+    if user_profile:
+        user_data = {
+            'age': getattr(user_profile, 'age', None),
+            'chronic_conditions': getattr(user_profile, 'chronic_conditions', []),
+            'gender': getattr(user_profile, 'gender', 'unknown')
+        }
+    
+    try:
+        tip = openai_service.get_daily_health_tip(user_data)
+        return {
+            "success": True,
+            "tip": tip,
+            "personalized": bool(user_data.get('chronic_conditions')),
+            "timestamp": datetime.now().isoformat()
+        }
+    except:
+        # Fallback tips
+        import random
+        tips = [
+            "Drink at least 8 glasses of water today to stay hydrated.",
+            "Include vegetables in every meal for better nutrition.",
+            "Take a 30-minute walk to support heart health.",
+            "Monitor your blood pressure regularly.",
+            "Take medications as prescribed by your doctor."
+        ]
+        return {
+            "success": True,
+            "tip": random.choice(tips),
+            "personalized": False,
+            "timestamp": datetime.now().isoformat()
+        }
+
+# Keep other endpoints (recent-meals, log-meal-manual) as they were
 @router.get("/recent-meals", response_model=list)
 async def get_recent_meals(
     skip: int = 0,
@@ -160,12 +229,9 @@ async def get_recent_meals(
     db: Session = Depends(get_db)
 ):
     """Get user's recent meal analyses"""
-    
     meals = db.query(FoodLog).filter(
         FoodLog.user_id == current_user.id
-    ).order_by(
-        FoodLog.created_at.desc()
-    ).offset(skip).limit(limit).all()
+    ).order_by(FoodLog.created_at.desc()).offset(skip).limit(limit).all()
     
     result = []
     for meal in meals:
@@ -176,48 +242,10 @@ async def get_recent_meals(
             "diet_score": meal.diet_score,
             "nutrients": meal.nutrients or {},
             "created_at": meal.created_at.isoformat(),
-            "recommendation": meal.ai_analysis.get('recommendation', '') if meal.ai_analysis else ''
+            "primary_recommendation": meal.ai_analysis.get('primary_recommendation', '') if meal.ai_analysis else ''
         })
     
     return result
-
-def calculate_diet_score(analysis_result: dict, user_data: dict) -> int:
-    """Calculate a diet score from 0-100 based on analysis and user health"""
-    
-    base_score = 70  # Start with neutral score
-    
-    nutrients = analysis_result.get('nutrients', {})
-    
-    # Adjust based on nutritional values
-    if nutrients.get('calories', 0) > 500:
-        base_score -= 15
-    elif nutrients.get('calories', 0) < 200:
-        base_score += 10
-    
-    if nutrients.get('protein', 0) > 20:
-        base_score += 10
-    
-    if nutrients.get('carbs', 0) > 60:
-        base_score -= 10
-    
-    # Adjust based on user health conditions
-    chronic_conditions = user_data.get('chronic_conditions', [])
-    
-    if 'diabetes' in chronic_conditions and nutrients.get('carbs', 0) > 40:
-        base_score -= 20
-    
-    if 'hypertension' in chronic_conditions and nutrients.get('type') == 'high_sodium':
-        base_score -= 15
-    
-    # Adjust based on food type
-    food_type = nutrients.get('type', '')
-    if food_type in ['vegetable', 'fruit']:
-        base_score += 15
-    elif food_type in ['starch', 'grain']:
-        base_score -= 5
-    
-    # Ensure score is within bounds
-    return max(0, min(100, base_score))
 
 @router.post("/log-meal-manual")
 async def log_meal_manual(
@@ -230,46 +258,13 @@ async def log_meal_manual(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Manual meal logging (fallback when no image)"""
-    
-    # Create manual analysis
-    analysis_result = {
-        "detected_food": food_name,
-        "description": f"Manually logged: {food_name}",
-        "tags": ["manual_log", food_name.lower()],
-        "nutrients": {
-            "calories": calories,
-            "carbs": carbs,
-            "protein": protein,
-            "fat": fats,
-            "type": "manual_entry"
-        },
-        "confidence": 1.0,
-        "analysis_source": "manual"
-    }
-    
-    # Calculate score
-    user_profile = db.query(UserProfile).filter(
-        UserProfile.user_id == current_user.id
-    ).first()
-    
-    user_data = {}
-    if user_profile:
-        user_data = {
-            'age': user_profile.age,
-            'chronic_conditions': user_profile.chronic_conditions or [],
-            'gender': user_profile.gender
-        }
-    
-    diet_score = calculate_diet_score(analysis_result, user_data)
-    
-    # Save to database
+    """Manual meal logging"""
     food_log = FoodLog(
         user_id=current_user.id,
         meal_type=meal_type,
-        ai_analysis=analysis_result,
-        diet_score=diet_score,
-        nutrients=analysis_result['nutrients'],
+        ai_analysis={"food": food_name, "source": "manual"},
+        diet_score=70,
+        nutrients={"calories": calories, "carbs": carbs, "protein": protein, "fat": fats},
         created_at=datetime.now()
     )
     
@@ -279,6 +274,5 @@ async def log_meal_manual(
     return {
         "message": "Meal logged successfully",
         "meal_id": food_log.id,
-        "food_name": food_name,
-        "diet_score": diet_score
+        "food_name": food_name
     }
