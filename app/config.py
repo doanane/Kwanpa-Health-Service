@@ -3,22 +3,28 @@ from typing import List, Optional
 import os
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
 class Settings(BaseModel):
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     
+    # Azure Custom Vision
+    AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT: str = os.getenv("AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT", "")
+    AZURE_CUSTOM_VISION_PREDICTION_KEY: str = os.getenv("AZURE_CUSTOM_VISION_PREDICTION_KEY", "")
+    
+    # Gemini AI
+    GEMINI_API: str = os.getenv("GEMINI_API", "")
+
     # JWT Authentication
     SECRET_KEY: str = os.getenv("SECRET_KEY", "-GHyAbetQfDupfx6XXyDkSu0vVkKzmdG4kIMYp7Q13A")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
     
-    # Environment
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
-    # CORS
     CORS_ORIGINS: List[str] = eval(os.getenv("CORS_ORIGINS", '["http://localhost:3000", "http://localhost:5173"]'))
     
     # Email Service
@@ -54,6 +60,10 @@ class Settings(BaseModel):
     AZURE_OPENAI_ENDPOINT: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
     AZURE_OPENAI_KEY: str = os.getenv("AZURE_OPENAI_KEY", "")
     
+    AZURE_OPENAI_DEPLOYMENT: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "")
+
+    AZURE_OPENAI_API_VERSION: str = os.getenv("AZURE_OPENAI_API_VERSION", "")
+    
     # IoT Hub
     AZURE_IOT_HUB_CONNECTION_STRING: str = os.getenv("AZURE_IOT_HUB_CONNECTION_STRING", "")
     
@@ -71,5 +81,6 @@ class Settings(BaseModel):
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+
 
 settings = Settings()

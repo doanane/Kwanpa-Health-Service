@@ -8,12 +8,12 @@ class IoTDevice(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    device_id = Column(String, unique=True)  # Azure IoT Device ID
-    device_type = Column(String)  # smartwatch, glucose_monitor, bp_monitor
+    device_id = Column(String, unique=True)  
+    device_type = Column(String)  
     device_name = Column(String)
     manufacturer = Column(String)
     model = Column(String)
-    connection_status = Column(String)  # connected, disconnected
+    connection_status = Column(String)  
     last_sync = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -32,7 +32,7 @@ class VitalReading(Base):
     blood_oxygen = Column(Float)
     temperature = Column(Float)
     glucose_level = Column(Float)
-    movement = Column(Integer)  # Steps or activity level
+    movement = Column(Integer)  
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     is_emergency = Column(Boolean, default=False)
     
