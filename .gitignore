@@ -21,6 +21,11 @@ wheels/
 *.egg
 MANIFEST
 
+.env
+*.env
+deploy.zip
+*.zip
+
 # Virtual Environments
 .venv/
 venv/

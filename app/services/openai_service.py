@@ -439,3 +439,104 @@ class OpenAIService:
             logger.error(f"OpenAI API call failed: {str(e)}")
             raise
 
+    def _parse_complete_analysis(self, text: str) -> Dict[str, Any]:
+        """Parse the complete analysis from OpenAI response"""
+        sections = {
+            "description": "",
+            "nutrients": {},
+            "chronic_disease_impact": "",
+            "immediate_recommendation": "",
+            "portion_guidance": "",
+            "balancing_advice": "",
+            "healthier_alternative": "",
+            "warning_level": "low",
+            "key_nutrients_to_watch": []
+        }
+        
+        # First, clean the entire text to remove numbers
+        text = self._remove_numbered_lists(text)
+        
+        current_section = None
+        lines = text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Remove any remaining numbers at start
+            line = re.sub(r'^\d+\.\s*', '', line)
+            
+            # Detect section headers (case insensitive)
+            if "description:" in line.lower():
+                current_section = "description"
+                line = re.sub(r'description:', '', line, flags=re.IGNORECASE).strip()
+            elif "nutrient analysis:" in line.lower() or "nutrients:" in line.lower():
+                current_section = "nutrients"
+                line = re.sub(r'nutrient analysis:|nutrients:', '', line, flags=re.IGNORECASE).strip()
+            elif "chronic disease impact:" in line.lower():
+                current_section = "chronic_disease_impact"
+                line = re.sub(r'chronic disease impact:', '', line, flags=re.IGNORECASE).strip()
+            elif "immediate recommendation:" in line.lower():
+                current_section = "immediate_recommendation"
+                line = re.sub(r'immediate recommendation:', '', line, flags=re.IGNORECASE).strip()
+            elif "portion guidance:" in line.lower():
+                current_section = "portion_guidance"
+                line = re.sub(r'portion guidance:', '', line, flags=re.IGNORECASE).strip()
+            elif "balancing advice:" in line.lower():
+                current_section = "balancing_advice"
+                line = re.sub(r'balancing advice:', '', line, flags=re.IGNORECASE).strip()
+            elif "healthier alternative:" in line.lower():
+                current_section = "healthier_alternative"
+                line = re.sub(r'healthier alternative:', '', line, flags=re.IGNORECASE).strip()
+            elif "warning level:" in line.lower():
+                current_section = "warning_level"
+                line = re.sub(r'warning level:', '', line, flags=re.IGNORECASE).strip().lower()
+            elif "key nutrients to watch:" in line.lower():
+                current_section = "key_nutrients_to_watch"
+                line = re.sub(r'key nutrients to watch:', '', line, flags=re.IGNORECASE).strip()
+            
+            # Add content to current section
+            if current_section and line:
+                # Skip if line is just a number
+                if re.match(r'^\d+$', line):
+                    continue
+                    
+                if current_section == "nutrients":
+                    nutrients = self._extract_nutrients_from_text(line)
+                    if nutrients:
+                        sections["nutrients"] = nutrients
+                elif current_section == "key_nutrients_to_watch":
+                    nutrients = [n.strip() for n in re.split(',|;|and', line) if n.strip()]
+                    sections["key_nutrients_to_watch"] = nutrients
+                elif current_section == "warning_level":
+                    if "high" in line.lower():
+                        sections["warning_level"] = "high"
+                    elif "medium" in line.lower():
+                        sections["warning_level"] = "medium"
+                    else:
+                        sections["warning_level"] = "low"
+                else:
+                    if sections[current_section]:
+                        sections[current_section] += " " + line
+                    else:
+                        sections[current_section] = line
+        
+        return sections
+
+    def _remove_numbered_lists(self, text: str) -> str:
+        """Remove numbered lists from text"""
+        lines = text.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            # Remove lines that are just numbers
+            if re.match(r'^\d+\.?$', line.strip()):
+                continue
+            
+            # Remove numbers at start of lines
+            line = re.sub(r'^\d+\.\s*', '', line)
+            line = re.sub(r'^\d+\)\s*', '', line)
+            
+            if line.strip():
+                cleaned_lines.append(line)
+        
+        return '\n'.join(cleaned_lines)
