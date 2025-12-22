@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth.security import get_current_active_user
+from app.auth.security import get_current_active_user_or_admin_or_admin_or_admin_or_admin_or_admin
 from app.models.user import User
 from app.models.caregiver import CaregiverRelationship
 from app.models.user import UserProfile
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/caregivers", tags=["caregivers"])
 @router.post("/volunteer")
 async def volunteer_as_caregiver(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
 ):
     current_user.is_caregiver = True
     db.commit()
@@ -28,7 +28,7 @@ async def request_caregiver_relationship(
     patient_id: int,
     relationship_type: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
 ):
     if not current_user.is_caregiver:
         raise HTTPException(
@@ -73,7 +73,7 @@ async def request_caregiver_relationship(
 @router.get("/dashboard")
 async def get_caregiver_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
 ):
     if not current_user.is_caregiver:
         raise HTTPException(
@@ -114,7 +114,7 @@ async def get_caregiver_dashboard(
 async def get_patient_insights(
     patient_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
 ):
     relationship = db.query(CaregiverRelationship).filter(
         CaregiverRelationship.caregiver_id == current_user.id,
@@ -172,7 +172,7 @@ async def send_message_to_patient(
     patient_id: int,
     message: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
 ):
     relationship = db.query(CaregiverRelationship).filter(
         CaregiverRelationship.caregiver_id == current_user.id,

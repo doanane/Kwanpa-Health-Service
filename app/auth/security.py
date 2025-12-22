@@ -9,6 +9,9 @@ from app.database import get_db
 from app.models.user import User
 from app.models.caregiver import Doctor
 from app.models.admin import Admin
+from typing import Optional, Union
+from sqlalchemy.orm import Session
+from app.models.admin import Admin
 
 
 import re
@@ -48,6 +51,98 @@ def create_access_token(data: dict, user_type: str, expires_delta: Optional[time
     to_encode.update({"exp": expire, "user_type": user_type})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+
+# Update the get_current_user function to handle admin tokens too
+async def get_current_user_or_admin(
+    token: Optional[str] = Depends(security_scheme), 
+    db: Session = Depends(get_db)
+) -> Union[User, Admin]:
+    """
+    Universal authentication that accepts both user and admin tokens
+    Returns either User or Admin object based on token type
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    if not token:
+        raise credentials_exception
+        
+    try:
+        payload = jwt.decode(token.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        subject: str = payload.get("sub")
+        user_type: str = payload.get("user_type")
+        
+        if subject is None:
+            raise credentials_exception
+        
+        if user_type == "user":
+            # Regular user token
+            user = db.query(User).filter(User.id == int(subject)).first()
+            if user is None or not user.is_active:
+                raise credentials_exception
+            return user
+            
+        elif user_type == "admin":
+            # Admin token
+            admin = db.query(Admin).filter(Admin.email == subject).first()
+            if admin is None or not admin.is_active:
+                raise credentials_exception
+            return admin
+            
+        else:
+            # Doctor token or other types
+            raise credentials_exception
+            
+    except JWTError:
+        raise credentials_exception
+
+# Create a universal "get current active" function
+async def get_current_active_user_or_admin(
+    current: Union[User, Admin] = Depends(get_current_user_or_admin)
+):
+    """Get current active user or admin"""
+    if hasattr(current, 'is_active'):
+        if not current.is_active:
+            raise HTTPException(status_code=400, detail="Account is inactive")
+    return current
+
+# Keep existing functions for backward compatibility
+async def get_current_user(token: Optional[str] = Depends(security_scheme), db: Session = Depends(get_db)) -> User:
+    """Original function - only accepts user tokens"""
+    return await get_current_user_or_admin(token, db)
+
+async def get_current_admin(token: Optional[str] = Depends(security_scheme), db: Session = Depends(get_db)) -> Admin:
+    """Original function - only accepts admin tokens"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    if not token:
+        raise credentials_exception
+        
+    try:
+        payload = jwt.decode(token.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        admin_email: str = payload.get("sub")
+        user_type: str = payload.get("user_type")
+        
+        if admin_email is None or user_type != "admin":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    admin = db.query(Admin).filter(Admin.email == admin_email).first()
+    if admin is None or not admin.is_active:
+        raise credentials_exception
+    
+    return admin
+
+
 
 async def get_current_user(
     token: Optional[str] = Depends(security_scheme), 
