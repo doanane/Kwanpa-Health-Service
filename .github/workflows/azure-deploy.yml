@@ -18,34 +18,42 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          # Create requirements.txt if missing
-          if [ ! -f requirements.txt ]; then
-            echo "fastapi" > requirements.txt
-            echo "uvicorn[standard]" >> requirements.txt
-            echo "gunicorn" >> requirements.txt
-            echo "sqlalchemy" >> requirements.txt
-            echo "psycopg2-binary" >> requirements.txt
-          fi
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          # Install core packages explicitly
+          pip install fastapi uvicorn[standard] gunicorn sqlalchemy psycopg2-binary
+          # Then install from requirements.txt if it exists
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Create startup file
-        run: |
-          echo "gunicorn app.main:app --workers 2 --bind 0.0.0.0:8000" > startup.txt
-
-      - name: Login to Azure
-        uses: azure/login@v2
+      - name: Login to Azure (using AZURE_CREDENTIALS)
+        uses: azure/login@v2 # Updated to v2 for better stability
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy using ZIP Deploy (direct)
+      - name: Restart App Service (prevents 409 conflicts)
         run: |
-          # Zip the application
-          zip -r deploy.zip . -x '*.git*' '*.github*'
-          
-          # Deploy using direct REST API
-          curl -X POST \
-            -H "Authorization: Bearer $(az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)" \
-            -H "Content-Type: application/zip" \
-            --data-binary @"deploy.zip" \
-            "https://hewal3-backend-api-aya3dzgefte4b3c3.scm.southafricanorth-01.azurewebsites.net/api/zipdeploy"
+          echo "Restarting App Service to clear any stuck deployments..."
+          az webapp restart --name hewal3-backend-api --resource-group hewal3-backend-api_group
+          echo "Waiting 30 seconds for restart to complete..."
+          sleep 30
+
+      - name: Deploy to Azure Web App with retry logic
+        uses: azure/webapps-deploy@v3 # Updated to v3
+        continue-on-error: true # Don't fail on first attempt
+        id: deploy-attempt
+        with:
+          app-name: "hewal3-backend-api"
+          package: "."
+
+      - name: Retry deployment if first attempt failed
+        if: steps.deploy-attempt.outcome == 'failure'
+        run: |
+          echo "First deployment failed (likely 409 conflict). Waiting 60 seconds..."
+          sleep 60
+          echo "Retrying deployment..."
+
+      - name: Final deployment attempt
+        if: steps.deploy-attempt.outcome == 'failure'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: "hewal3-backend-api"
+          package: "."
