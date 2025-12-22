@@ -12,12 +12,12 @@ class Doctor(Base):
     full_name = Column(String)
     specialization = Column(String)
     hospital = Column(String)
-    email = Column(String, nullable=True)  # ADD THIS FIELD
+    email = Column(String, nullable=True)  
     is_active = Column(Boolean, default=True)
     created_by = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Use string reference to avoid circular import
+    
     patients = relationship("UserProfile", back_populates="assigned_doctor", cascade="all, delete-orphan")
 
 class CaregiverRelationship(Base):
@@ -30,6 +30,6 @@ class CaregiverRelationship(Base):
     status = Column(String, default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Use string references to avoid circular imports
+    
     caregiver = relationship("User", foreign_keys=[caregiver_id], backref="caregiving_for")
     patient = relationship("User", foreign_keys=[patient_id], backref="caregivers")

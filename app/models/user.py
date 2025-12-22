@@ -1,4 +1,4 @@
-# app/models/user.py - COMPLETE VERSION
+
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
@@ -26,7 +26,7 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationships
+    
     emergency_contacts = relationship("EmergencyContact", back_populates="user_rel", cascade="all, delete-orphan")
     emergency_events = relationship("EmergencyEvent", back_populates="user_rel", cascade="all, delete-orphan")
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -36,7 +36,7 @@ class User(Base):
     food_logs = relationship("FoodLog", back_populates="user", cascade="all, delete-orphan")
     weekly_progress = relationship("WeeklyProgress", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
-    # Fix the relationship warnings by adding overlaps parameter
+    
     caregiver_relationships = relationship(
         "CaregiverRelationship", 
         foreign_keys="CaregiverRelationship.patient_id", 
@@ -56,7 +56,7 @@ class User(Base):
         random_digits = ''.join([str(random.randint(0, 9)) for _ in range(5)])
         return f"{base}{random_digits}"
 
-# Event to set patient_id before insert if it's None
+
 @event.listens_for(User, 'before_insert')
 def set_patient_id_before_insert(mapper, connection, target):
     if target.patient_id is None:
