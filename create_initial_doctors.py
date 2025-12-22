@@ -9,7 +9,6 @@ from app.auth.hashing import get_password_hash
 def create_initial_doctors():
     db = SessionLocal()
     try:
-        # List of initial doctors for development
         initial_doctors = [
             {
                 "doctor_id": "DOC001234",
