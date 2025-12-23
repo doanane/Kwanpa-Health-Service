@@ -1,15 +1,3 @@
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime
-from pydantic import BaseModel
-from app.database import get_db
-from app.auth.security import get_current_user
-from app.models.user import User
-from app.models.caregiver import CaregiverRelationship  
-
-
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -19,6 +7,7 @@ from app.database import get_db
 from app.auth.security import get_current_user
 from app.models.user import User
 from app.models.caregiver import CaregiverRelationship
+
 router = APIRouter(prefix="/caregivers", tags=["caregivers"])
 
 
@@ -202,6 +191,12 @@ async def connect_with_patient(
             detail="Only caregivers can connect with patients"
         )
     
+    # Validate patient_caregiver_id input
+    if not patient_caregiver_id or not patient_caregiver_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Patient ID cannot be empty"
+        )
     
     patient = db.query(User).filter(
         (User.caregiver_id == patient_caregiver_id) | 

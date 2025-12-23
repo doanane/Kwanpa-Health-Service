@@ -56,15 +56,24 @@ def startup_event():
         logger.warning(f"Database setup warning: {e}")
 
 
+# In app/main.py, ensure you have all these routers:
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
 from app.routers.health import router as health_router
 from app.routers.notifications import router as notifications_router
+from app.routers.caregivers import router as caregivers_router  # Make sure this is here
+from app.routers.doctors import router as doctors_router
+from app.routers.admin import router as admin_router
+from app.routers.food_analysis import router as food_analysis_router
 
 app.include_router(auth_router)
-app.include_router(users_router)
+app.include_router(users_router)  
 app.include_router(health_router)
 app.include_router(notifications_router)
+app.include_router(caregivers_router)  
+app.include_router(doctors_router)
+app.include_router(admin_router)
+app.include_router(food_analysis_router)
 
 
 logger.info("Loading superadmin router...")
