@@ -6,7 +6,7 @@ import os
 import shutil
 from pydantic import BaseModel
 from app.database import get_db
-from app.auth.security import get_current_user  # Make sure this is imported
+from app.auth.security import get_current_user 
 from app.models.user import User, UserProfile, UserDevice
 # from app.models.health import HealthData, EmergencyContact, EmergencyEvent
 import logging
@@ -65,14 +65,14 @@ async def test_users():
 
 @router.get("/profile", response_model=ProfileResponse)
 async def get_profile(
-    current_user: User = Depends(get_current_user),  # FIXED: Add this parameter
+    current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     """Get user profile"""
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     
     if not profile:
-        # Create empty profile if doesn't exist
+       
         profile = UserProfile(user_id=current_user.id)
         db.add(profile)
         db.commit()
@@ -106,7 +106,7 @@ async def get_profile(
 @router.put("/profile")
 async def update_profile(
     profile_data: ProfileUpdateRequest,
-    current_user: User = Depends(get_current_user),  # FIXED: Add this parameter
+    current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     """Update user profile"""
@@ -116,19 +116,19 @@ async def update_profile(
         profile = UserProfile(user_id=current_user.id)
         db.add(profile)
     
-    # Update fields
+   
     update_fields = profile_data.dict(exclude_unset=True)
     for field, value in update_fields.items():
         if value is not None:
             setattr(profile, field, value)
     
-    # Calculate BMI if weight and height provided
+   
     if profile_data.weight and profile_data.height:
-        height_m = profile_data.height / 100  # Convert cm to m
+        height_m = profile_data.height / 100 
         if height_m > 0:
             profile.bmi = round(profile_data.weight / (height_m ** 2), 1)
     
-    # Mark profile as completed if essential fields are filled
+   
     essential_fields = ['full_name', 'gender', 'age', 'weight', 'height']
     if all(getattr(profile, field, None) for field in essential_fields):
         profile.profile_completed = True
@@ -141,24 +141,24 @@ async def update_profile(
 @router.post("/profile/photo")
 async def upload_profile_photo(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),  # FIXED: Add this parameter
+    current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     """Upload profile photo"""
-    # Create uploads directory if it doesn't exist
+   
     upload_dir = "uploads/profile_photos"
     os.makedirs(upload_dir, exist_ok=True)
     
-    # Generate unique filename
+   
     file_ext = os.path.splitext(file.filename)[1]
     filename = f"{current_user.id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}{file_ext}"
     file_path = os.path.join(upload_dir, filename)
     
-    # Save file
+   
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    # Update profile with photo path
+   
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
         profile = UserProfile(user_id=current_user.id)
@@ -171,7 +171,7 @@ async def upload_profile_photo(
 
 @router.get("/me")
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user)  # FIXED: Add this parameter
+    current_user: User = Depends(get_current_user) 
 ):
     """Get current user information"""
     return {
@@ -189,7 +189,7 @@ async def get_current_user_info(
 
 @router.get("/devices")
 async def get_user_devices(
-    current_user: User = Depends(get_current_user),  # FIXED: Add this parameter
+    current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     """Get user's registered devices"""
@@ -212,25 +212,25 @@ async def register_device(
     device_name: str = Form(...),
     device_id: str = Form(...),
     fcm_token: Optional[str] = Form(None),
-    current_user: User = Depends(get_current_user),  # FIXED: Add this parameter
+    current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     """Register a new device for the user"""
-    # Check if device already registered
+   
     existing = db.query(UserDevice).filter(
         UserDevice.user_id == current_user.id,
         UserDevice.device_id == device_id
     ).first()
     
     if existing:
-        # Update existing device
+       
         existing.device_type = device_type
         existing.device_name = device_name
         existing.fcm_token = fcm_token
         db.commit()
         return {"message": "Device updated", "device_id": existing.id}
     
-    # Register new device
+   
     device = UserDevice(
         user_id=current_user.id,
         device_type=device_type,
@@ -248,7 +248,7 @@ async def register_device(
 @router.delete("/devices/{device_id}")
 async def unregister_device(
     device_id: str,
-    current_user: User = Depends(get_current_user),  # FIXED: Add this parameter
+    current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     """Unregister a device"""
