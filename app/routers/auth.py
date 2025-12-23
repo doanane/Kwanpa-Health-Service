@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, 
 import string
 from typing import Optional, Union
 import jwt
+import logging
 from app.database import get_db
 from app.auth.security import create_access_token, verify_password, get_password_hash, get_current_user,    get_current_admin, get_current_user_or_admin,get_current_active_user_or_admin 
 from app.auth.hashing import verify_password as verify_pass, get_password_hash as get_pass_hash
@@ -25,6 +26,7 @@ import os
 from app.models.admin import Admin
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
+logger = logging.getLogger(__name__)
 
 
 class UserCreate(BaseModel):
@@ -57,16 +59,6 @@ class RequestOTPLogin(BaseModel):
 class VerifyOTPLogin(BaseModel):
     email: EmailStr
     otp: str = Field(..., min_length=6, max_length=6)
-
-class CaregiverSignupRequest(BaseModel):
-    first_name: str = Field(..., min_length=2, max_length=50)
-    last_name: str = Field(..., min_length=2, max_length=50)
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    phone_number: Optional[str] = None
-    caregiver_type: str = Field(..., description="family, friend, or professional")
-    experience_years: Optional[int] = Field(None, ge=0, le=50)
-    agree_to_terms: bool
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -308,15 +300,12 @@ async def signup_caregiver(
     
     hashed_password = get_pass_hash(caregiver_data.password)
     
-    
-    import random
-    import string
-    chars = string.ascii_uppercase + string.digits
-    caregiver_id = f"CG{''.join(random.choice(chars) for _ in range(8))}"
-    
+    # Generate a high-entropy caregiver_id using UUID to minimize the risk of collisions,
+    # rather than relying on a simple random approach with a manual uniqueness check.
+    caregiver_id = f"CG{uuid.uuid4().hex[:8].upper()}"
     
     while db.query(User).filter(User.caregiver_id == caregiver_id).first():
-        caregiver_id = f"CG{''.join(random.choice(chars) for _ in range(8))}"
+        caregiver_id = f"CG{uuid.uuid4().hex[:8].upper()}"
     
     
     user = User(
@@ -331,20 +320,28 @@ async def signup_caregiver(
     
     try:
         user.caregiver_id = caregiver_id
-    except:
-        pass  
-    
+    except Exception as exc:
+        logger.exception(
+            "Failed to set caregiver_id '%s' for caregiver user with email '%s'",
+            caregiver_id,
+            caregiver_data.email,
+        )
     
     try:
         user.first_name = caregiver_data.first_name
-    except:
-        pass
-    
+    except Exception as exc:
+        logger.exception(
+            "Failed to set first_name for caregiver user with email '%s'",
+            caregiver_data.email,
+        )
     
     try:
         user.last_name = caregiver_data.last_name
-    except:
-        pass
+    except Exception as exc:
+        logger.exception(
+            "Failed to set last_name for caregiver user with email '%s'",
+            caregiver_data.email,
+        )
     
     db.add(user)
     db.commit()

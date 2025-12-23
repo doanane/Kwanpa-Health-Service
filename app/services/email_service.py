@@ -215,7 +215,7 @@ class EmailService:
     
 
 
-    async def send_caregiver_welcome_email(self, to_email: str, full_name: str, caregiver_id: str, verification_token: str):
+    def send_caregiver_welcome_email(self, to_email: str, full_name: str, caregiver_id: str, verification_token: str):
         """Send welcome email to new caregiver"""
         subject = f"Welcome to HEWAL3 Caregiver Portal - Your ID: {caregiver_id}"
         
@@ -268,9 +268,8 @@ class EmailService:
         </html>
         """
         
-        # Make sure this returns an awaitable coroutine
         try:
-            result = await self.send_email(to_email, subject, html_content)
+            result = self.send_email(to_email, subject, html_content)
             logger.info(f"✅ Caregiver welcome email sent to {to_email}")
             return result
         except Exception as e:
