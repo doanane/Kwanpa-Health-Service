@@ -74,11 +74,11 @@ try:
     logger.info("Superadmin router loaded successfully")
     
     
-    logger.info("Superadmin endpoints registered:")
-    for route in superadmin_router.routes:
-        if hasattr(route, 'methods'):
-            methods = ', '.join(route.methods)
-            logger.info(f"  {methods} {route.path}")
+    # logger.info("Superadmin endpoints registered:")
+    # for route in superadmin_router.routes:
+    #     if hasattr(route, 'methods'):
+    #         methods = ', '.join(route.methods)
+    #         logger.info(f"  {methods} {route.path}")
             
 except ImportError as e:
     logger.error(f"Failed to import superadmin router: {e}")
@@ -90,29 +90,28 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-# try:
-#     from app.routers.caregivers import router as caregivers_router
-#     app.include_router(caregivers_router)
-#     logger.info("✅ Caregivers router loaded successfully")
-#     logger.info(f"   Prefix: {caregivers_router.prefix}")
-#     logger.info(f"   Tags: {caregivers_router.tags}")
-    
-#     # Log all caregivers routes
-#     for route in caregivers_router.routes:
-#         if hasattr(route, 'path'):
-#             logger.info(f"   - {route.path}")
-            
-# except Exception as e:  # Change from ImportError to Exception
-#     logger.error(f"❌ Failed to load caregivers router: {e}")
-#     import traceback
-#     traceback.print_exc() 
-
+# In app/main.py, ensure this section exists:
 try:
-    from app.routers.doctors import router as doctors_router
-    app.include_router(doctors_router)
-    logger.info("Doctors router loaded")
-except ImportError as e:
-    logger.warning(f"Doctors router not loaded: {e}")
+    from app.routers.caregivers import router as caregivers_router
+    app.include_router(caregivers_router)
+    # logger.info("✅ Caregivers router loaded successfully")
+    
+    # # Log routes for debugging
+    # for route in caregivers_router.routes:
+    #     if hasattr(route, 'path'):
+    #         logger.info(f"   - {route.path}")
+            
+except Exception as e:
+    logger.error(f"❌ Failed to load caregivers router: {e}")
+    import traceback
+    traceback.print_exc()
+
+# try:
+#     from app.routers.doctors import router as doctors_router
+#     app.include_router(doctors_router)
+#     logger.info("Doctors router loaded")
+# except ImportError as e:
+#     logger.warning(f"Doctors router not loaded: {e}")
 
 try:
     from app.routers.leaderboard import router as leaderboard_router
@@ -129,12 +128,12 @@ except ImportError as e:
     logger.warning(f"Admin router not loaded: {e}")
 
 
-try:
-    from app.routers.google_auth import router as google_auth_router
-    app.include_router(google_auth_router)
-    logger.info("✅ Google OAuth router loaded successfully")
-except ImportError as e:
-    logger.error(f"❌ Failed to import Google Auth router: {e}")
+# try:
+#     from app.routers.google_auth import router as google_auth_router
+#     app.include_router(google_auth_router)
+#     logger.info("✅ Google OAuth router loaded successfully")
+# except ImportError as e:
+#     logger.error(f"❌ Failed to import Google Auth router: {e}")
 
 
 app.add_middleware(
@@ -143,6 +142,7 @@ app.add_middleware(
         "https://kwanpa-health-hub-six.vercel.app",
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:8001",
         "http://localhost:8000"
     ],
     allow_credentials=True,

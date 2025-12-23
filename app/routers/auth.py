@@ -26,7 +26,7 @@ from app.models.admin import Admin
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
-# Pydantic Models
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
@@ -77,7 +77,7 @@ class TokenResponse(BaseModel):
     email: str
     is_email_verified: bool
 
-# Helper Functions
+
 def generate_otp(length=6):
     """Generate numeric OTP"""
     return ''.join(secrets.choice(string.digits) for _ in range(length))
@@ -104,7 +104,7 @@ def create_refresh_token(user_id: int, db: Session):
 
 
 
-    # Check if token is valid
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
         PasswordResetToken.is_used == False,
@@ -123,7 +123,7 @@ def create_refresh_token(user_id: int, db: Session):
         </html>
         """)
     
-    # Show form with pre-filled token
+    
     return HTMLResponse(content=f"""
     <html>
         <head>
@@ -190,7 +190,7 @@ def create_refresh_token(user_id: int, db: Session):
 
 
     
-    # Check if token is valid
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
         PasswordResetToken.is_used == False,
@@ -208,7 +208,7 @@ def create_refresh_token(user_id: int, db: Session):
         </html>
         """
     
-    # Show form with pre-filled token
+    
     return f"""
     <html>
         <head>
@@ -272,22 +272,23 @@ def create_refresh_token(user_id: int, db: Session):
     </html>
     """
 
+
+
 @router.post("/signup/caregiver", response_model=CaregiverSignupResponse)
 async def signup_caregiver(
     caregiver_data: CaregiverSignupRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """Register a new caregiver (non-patient)"""
+    """Register a new caregiver"""
     
-    # Check terms agreement
     if not caregiver_data.agree_to_terms:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You must agree to the terms and conditions"
         )
     
-    # Check if email already exists
+    
     existing_user = db.query(User).filter(User.email == caregiver_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -295,81 +296,106 @@ async def signup_caregiver(
             detail="Email already registered"
         )
     
-    # Generate username from first and last name
+    
     base_username = f"{caregiver_data.first_name.lower()}.{caregiver_data.last_name.lower()}"
     username = base_username
     
-    # Check if username exists, add numbers if needed
     counter = 1
     while db.query(User).filter(User.username == username).first():
         username = f"{base_username}{counter}"
         counter += 1
     
-    # Hash password
+    
     hashed_password = get_pass_hash(caregiver_data.password)
     
-    # Create caregiver user
+    
+    import random
+    import string
+    chars = string.ascii_uppercase + string.digits
+    caregiver_id = f"CG{''.join(random.choice(chars) for _ in range(8))}"
+    
+    
+    while db.query(User).filter(User.caregiver_id == caregiver_id).first():
+        caregiver_id = f"CG{''.join(random.choice(chars) for _ in range(8))}"
+    
+    
     user = User(
-        first_name=caregiver_data.first_name,
-        last_name=caregiver_data.last_name,
         email=caregiver_data.email,
         username=username,
         hashed_password=hashed_password,
         phone_number=caregiver_data.phone_number,
-        is_caregiver=True,  # Mark as caregiver
-        caregiver_type=caregiver_data.caregiver_type,
-        experience_years=caregiver_data.experience_years,
+        is_caregiver=True,  
         is_email_verified=False
     )
     
-    # Generate unique caregiver ID
-    user.caregiver_id = user.generate_caregiver_id()
     
-    # Check if caregiver ID is unique (very unlikely but check anyway)
-    while db.query(User).filter(User.caregiver_id == user.caregiver_id).first():
-        user.caregiver_id = user.generate_caregiver_id()
+    try:
+        user.caregiver_id = caregiver_id
+    except:
+        pass  
+    
+    
+    try:
+        user.first_name = caregiver_data.first_name
+    except:
+        pass
+    
+    
+    try:
+        user.last_name = caregiver_data.last_name
+    except:
+        pass
     
     db.add(user)
+    db.commit()
+    db.refresh(user)  
     
-    # Generate email verification token
+    logger.info(f"✅ Caregiver user created: ID={user.id}, Email={user.email}")
+    
+    
     verification_token = generate_token()
     expires_at = datetime.utcnow() + timedelta(hours=24)
     
     verification = EmailVerificationToken(
-        user_id=user.id,
+        user_id=user.id,  
         token=verification_token,
         expires_at=expires_at
     )
     
     db.add(verification)
     db.commit()
-    db.refresh(user)
     
-    # Send welcome email to caregiver
+    
     background_tasks.add_task(
-        email_service.send_caregiver_welcome_email,  # You'll need to create this
+        email_service.send_caregiver_welcome_email,
         user.email,
-        f"{user.first_name} {user.last_name}",
-        user.caregiver_id,
+        f"{caregiver_data.first_name} {caregiver_data.last_name}",
+        caregiver_id,
         verification_token
     )
     
-    # Create access token
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
-        user_type="caregiver"  # Important: different user_type
+        user_type="caregiver"
     )
     
-    return CaregiverSignupResponse(
-        caregiver_id=user.caregiver_id,
-        email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        caregiver_type=user.caregiver_type,
-        message=f"Caregiver account created successfully. Your Caregiver ID is: {user.caregiver_id}",
-        access_token=access_token
-    )
     
+    refresh_token = create_refresh_token(user.id, db)
+    
+    return {
+        "caregiver_id": caregiver_id,
+        "email": user.email,
+        "first_name": caregiver_data.first_name,
+        "last_name": caregiver_data.last_name,
+        "caregiver_type": caregiver_data.caregiver_type,
+        "message": f"Caregiver account created successfully. Your Caregiver ID is: {caregiver_id}",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user_id": user.id,
+        "username": username
+    }
+
 @router.post("/signup", response_model=TokenResponse)
 async def signup(
     user_data: UserCreate,
@@ -377,7 +403,7 @@ async def signup(
     db: Session = Depends(get_db)
 ):
     """Register a new patient user"""
-    # Check if user exists
+    
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -393,7 +419,7 @@ async def signup(
                 detail="Username already taken"
             )
     
-    # Create user
+    
     hashed_password = get_pass_hash(user_data.password)
     user = User(
         email=user_data.email,
@@ -407,7 +433,7 @@ async def signup(
     db.commit()
     db.refresh(user)
     
-    # Generate email verification token
+    
     verification_token = generate_token()
     expires_at = datetime.utcnow() + timedelta(hours=24)
     
@@ -420,7 +446,7 @@ async def signup(
     db.add(verification)
     db.commit()
     
-    # Send verification email in background
+    
     background_tasks.add_task(
         email_service.send_welcome_email,
         user.email,
@@ -428,7 +454,7 @@ async def signup(
         verification_token
     )
     
-    # Create tokens
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -436,7 +462,7 @@ async def signup(
     
     refresh_token = create_refresh_token(user.id, db)
     
-    # Create session
+    
     session_token = generate_token()
     session = UserSession(
         user_id=user.id,
@@ -483,11 +509,11 @@ async def login(
             detail="Account is deactivated"
         )
     
-    # Update last login
+    
     user.last_login = datetime.utcnow()
     db.commit()
     
-    # Create tokens
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -495,7 +521,7 @@ async def login(
     
     refresh_token = create_refresh_token(user.id, db)
     
-    # Create session
+    
     session_token = generate_token()
     device_info = request.headers.get("User-Agent", "Unknown")
     ip_address = request.client.host if request.client else "Unknown"
@@ -530,17 +556,17 @@ async def forgot_password(
     user = db.query(User).filter(User.email == request_data.email).first()
     
     if user:
-        # Generate reset token
+        
         reset_token = generate_token()
         expires_at = datetime.utcnow() + timedelta(hours=1)
         
-        # Invalidate existing tokens
+        
         db.query(PasswordResetToken).filter(
             PasswordResetToken.email == request_data.email,
             PasswordResetToken.is_used == False
         ).update({"is_used": True})
         
-        # Create new token
+        
         reset_token_obj = PasswordResetToken(
             email=request_data.email,
             token=reset_token,
@@ -550,14 +576,14 @@ async def forgot_password(
         db.add(reset_token_obj)
         db.commit()
         
-        # Send reset email in background
+        
         background_tasks.add_task(
             email_service.send_password_reset_email,
             request_data.email,
             reset_token
         )
     
-    # Always return success (security through obscurity)
+    
     return {"message": "If your email exists, you will receive a password reset link"}
 
 @router.post("/reset-password")
@@ -566,7 +592,7 @@ async def reset_password(
     db: Session = Depends(get_db)
 ):
     """Reset password with token"""
-    # Find valid token
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == request_data.token,
         PasswordResetToken.is_used == False,
@@ -579,7 +605,7 @@ async def reset_password(
             detail="Invalid or expired reset token"
         )
     
-    # Find user
+    
     user = db.query(User).filter(User.email == reset_token.email).first()
     if not user:
         raise HTTPException(
@@ -587,14 +613,14 @@ async def reset_password(
             detail="User not found"
         )
     
-    # Update password
+    
     user.hashed_password = get_pass_hash(request_data.new_password)
     reset_token.is_used = True
     
-    # Invalidate all refresh tokens
+    
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
     
-    # Invalidate all sessions
+    
     db.query(UserSession).filter(UserSession.user_id == user.id).update({"is_active": False})
     
     db.commit()
@@ -652,12 +678,12 @@ async def resend_verification(
             detail="Email already verified"
         )
     
-    # Delete old verification tokens
+    
     db.query(EmailVerificationToken).filter(
         EmailVerificationToken.user_id == user.id
     ).delete()
     
-    # Create new verification token
+    
     verification_token = generate_token()
     expires_at = datetime.utcnow() + timedelta(hours=24)
     
@@ -670,7 +696,7 @@ async def resend_verification(
     db.add(verification)
     db.commit()
     
-    # Send verification email in background
+    
     background_tasks.add_task(
         email_service.send_welcome_email,
         user.email,
@@ -690,20 +716,20 @@ async def request_otp_login(
     user = db.query(User).filter(User.email == request_data.email).first()
     
     if not user:
-        # For security, don't reveal if user exists
+        
         return {"message": "If your account exists, OTP will be sent to your email"}
     
-    # Generate OTP
+    
     otp = generate_otp()
     expires_at = datetime.utcnow() + timedelta(minutes=10)
     
-    # Invalidate old OTPs
+    
     db.query(LoginOTP).filter(
         LoginOTP.email == request_data.email,
         LoginOTP.is_used == False
     ).update({"is_used": True})
     
-    # Create new OTP
+    
     login_otp = LoginOTP(
         email=request_data.email,
         otp=otp,
@@ -713,9 +739,9 @@ async def request_otp_login(
     db.add(login_otp)
     db.commit()
     
-    # Send OTP via EMAIL only (no SMS)
+    
     background_tasks.add_task(
-        email_service.send_otp_email,  # We'll create this function
+        email_service.send_otp_email,  
         user.email,
         user.username or user.email.split('@')[0],
         otp
@@ -724,7 +750,7 @@ async def request_otp_login(
     return {
         "message": "OTP sent to your email address",
         "delivery_method": "email",
-        "email": user.email[:3] + "***" + user.email.split('@')[1]  # Mask email
+        "email": user.email[:3] + "***" + user.email.split('@')[1]  
     }
 
 @router.post("/login/otp/verify")
@@ -754,14 +780,14 @@ async def verify_otp_login(
             detail="User not found"
         )
     
-    # Mark OTP as used
+    
     login_otp.is_used = True
     
-    # Update last login
+    
     user.last_login = datetime.utcnow()
     db.commit()
     
-    # Create tokens
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -769,7 +795,7 @@ async def verify_otp_login(
     
     refresh_token = create_refresh_token(user.id, db)
     
-    # Create session
+    
     session_token = generate_token()
     device_info = request.headers.get("User-Agent", "Unknown")
     ip_address = request.client.host if request.client else "Unknown"
@@ -799,13 +825,13 @@ async def verify_otp_login(
 @router.post("/change-password")
 async def change_password(
     request_data: ChangePasswordRequest,
-    current: Union[User, Admin] = Depends(get_current_user_or_admin),  # Changed this
+    current: Union[User, Admin] = Depends(get_current_user_or_admin),  
     db: Session = Depends(get_db)
 ):
     """Change password (works for both users and admins)"""
     from app.auth.hashing import verify_password as verify_pass
     
-    # Check current password
+    
     if isinstance(current, Admin):
         if not verify_pass(request_data.current_password, current.hashed_password):
             raise HTTPException(
@@ -821,7 +847,7 @@ async def change_password(
             )
         current.hashed_password = get_pass_hash(request_data.new_password)
         
-        # Invalidate all refresh tokens for users
+        
         db.query(RefreshToken).filter(RefreshToken.user_id == current.id).update({"is_revoked": True})
     
     db.commit()
@@ -853,7 +879,7 @@ async def refresh_token(
             detail="User not found or inactive"
         )
     
-    # Create new access token
+    
     access_token = create_access_token(
         data={"sub": str(user.id)},
         user_type="user"
@@ -867,15 +893,15 @@ async def refresh_token(
 
 @router.post("/logout")
 async def logout(
-    current: Union[User, Admin] = Depends(get_current_user_or_admin),  # Changed this
+    current: Union[User, Admin] = Depends(get_current_user_or_admin),  
     db: Session = Depends(get_db)
 ):
     """Logout user or admin"""
     if isinstance(current, Admin):
-        # Admin logout logic (if you have admin sessions)
+        
         return {"message": "Admin logged out successfully"}
     
-    # Original user logout logic
+    
     db.query(RefreshToken).filter(RefreshToken.user_id == current.id).update({"is_revoked": True})
     db.query(UserSession).filter(UserSession.user_id == current.id).update({"is_active": False})
     db.commit()
@@ -885,11 +911,11 @@ async def logout(
 
 @router.get("/me")
 async def get_current_user_info(
-    current: Union[User, Admin] = Depends(get_current_user_or_admin)  # Changed this
+    current: Union[User, Admin] = Depends(get_current_user_or_admin)  
 ):
     """Get current user or admin information"""
     if isinstance(current, Admin):
-        # Return admin info
+        
         return {
             "id": current.id,
             "email": current.email,
@@ -901,7 +927,7 @@ async def get_current_user_info(
             "created_at": current.created_at
         }
     else:
-        # Return user info
+        
         return {
             "id": current.id,
             "email": current.email,
@@ -918,22 +944,22 @@ async def get_current_user_info(
 
 @router.get("/sessions")
 async def get_user_sessions(
-    current: Union[User, Admin] = Depends(get_current_user_or_admin),  # Changed this
+    current: Union[User, Admin] = Depends(get_current_user_or_admin),  
     db: Session = Depends(get_db)
 ):
     """Get user's active sessions (also works for admin)"""
-    # If it's an admin, they might not have sessions in UserSession table
-    # So we return empty or create admin-specific session logic
+    
+    
     if isinstance(current, Admin):
-        # Admin sessions might be handled differently
-        # For now, return empty or mock data
+        
+        
         return {
             "message": "Admin sessions are managed separately",
             "admin_id": current.id,
             "sessions": []
         }
     
-    # Original user session logic
+    
     sessions = db.query(UserSession).filter(
         UserSession.user_id == current.id,
         UserSession.is_active == True,
@@ -950,17 +976,17 @@ async def get_user_sessions(
         }
         for session in sessions
     ]
-# Add these imports at the top of app/routers/auth.py
+
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-# Add these endpoints to your router
+
 @router.get("/verify-email-page/{token}", response_class=HTMLResponse)
 async def verify_email_page(
     token: str,
     db: Session = Depends(get_db)
 ):
     """HTML page to verify email (for direct links from emails)"""
-    # Import models
+    
     from app.models.auth import EmailVerificationToken
     from app.models.user import User
     
@@ -1002,7 +1028,7 @@ async def verify_email_page(
         </html>
         """)
     
-    # Verify the email
+    
     user.is_email_verified = True
     db.delete(verification_token)
     db.commit()
@@ -1044,12 +1070,12 @@ async def reset_password_page(
     db: Session = Depends(get_db)
 ):
     """HTML page to reset password (for direct links from emails)"""
-    # Import models
+    
     from app.models.auth import PasswordResetToken
     from app.models.user import User
     
     if not token:
-        # Show form to enter token
+        
         return HTMLResponse(content="""
         <html>
             <head>
@@ -1106,7 +1132,7 @@ async def reset_password_page(
         </html>
         """)
     
-    # Check if token is valid
+    
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
         PasswordResetToken.is_used == False,
@@ -1125,7 +1151,7 @@ async def reset_password_page(
         </html>
         """)
     
-    # Show form with pre-filled token
+    
     return HTMLResponse(content=f"""
     <html>
         <head>
