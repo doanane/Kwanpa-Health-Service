@@ -1,4 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+
+from app.schemas.caregiver_signup import CaregiverSignupRequest, CaregiverSignupResponse
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
@@ -55,6 +58,16 @@ class VerifyOTPLogin(BaseModel):
     email: EmailStr
     otp: str = Field(..., min_length=6, max_length=6)
 
+class CaregiverSignupRequest(BaseModel):
+    first_name: str = Field(..., min_length=2, max_length=50)
+    last_name: str = Field(..., min_length=2, max_length=50)
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    phone_number: Optional[str] = None
+    caregiver_type: str = Field(..., description="family, friend, or professional")
+    experience_years: Optional[int] = Field(None, ge=0, le=50)
+    agree_to_terms: bool
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -88,159 +101,9 @@ def create_refresh_token(user_id: int, db: Session):
     db.commit()
     return token
 
-# Endpoints
-@router.get("/verify-email/{token}", response_class=HTMLResponse)
-async def verify_email_page(
-    token: str,
-    db: Session = Depends(get_db)
-):
-    """HTML page to verify email (for direct links from emails)"""
-    # Import models
-    from app.models.auth import EmailVerificationToken
-    from app.models.user import User
-    
-    verification_token = db.query(EmailVerificationToken).filter(
-        EmailVerificationToken.token == token,
-        EmailVerificationToken.expires_at > datetime.utcnow()
-    ).first()
-    
-    if not verification_token:
-        return HTMLResponse(content="""
-        <html>
-            <head>
-                <title>Email Verification Failed</title>
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    .success { color: green; }
-                    .error { color: red; }
-                    .container { max-width: 600px; margin: 0 auto; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1 class="error">Email Verification Failed</h1>
-                    <p>The verification link is invalid or has expired.</p>
-                    <p>Please request a new verification email.</p>
-                    <p><a href="/docs#/authentication/resend_verification">Request New Verification Email</a></p>
-                </div>
-            </body>
-        </html>
-        """)
-    
-    user = db.query(User).filter(User.id == verification_token.user_id).first()
-    if not user:
-        return HTMLResponse(content="""
-        <html>
-            <body>
-                <h1>User not found</h1>
-            </body>
-        </html>
-        """)
-    
-    # Verify the email
-    user.is_email_verified = True
-    db.delete(verification_token)
-    db.commit()
-    
-    return HTMLResponse(content=f"""
-    <html>
-        <head>
-            <title>Email Verified Successfully</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
-                .success {{ color: green; }}
-                .container {{ max-width: 600px; margin: 0 auto; }}
-                .button {{ 
-                    display: inline-block; 
-                    padding: 12px 24px; 
-                    background-color: #4CAF50; 
-                    color: white; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                    margin: 20px 0; 
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1 class="success">Email Verified Successfully!</h1>
-                <p>Your email has been verified. You can now log in to your account.</p>
-                <p><strong>Email:</strong> {user.email}</p>
-                <a href="/docs#/authentication/login" class="button">Go to Login</a>
-                <p>Or use the API documentation to make login requests.</p>
-            </div>
-        </body>
-    </html>
-    """)
 
-@router.get("/reset-password-page", response_class=HTMLResponse)
-async def reset_password_page(
-    token: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
-):
-    """HTML page to reset password (for direct links from emails)"""
-    # Import models
-    from app.models.auth import PasswordResetToken
-    from app.models.user import User
-    
-    if not token:
-        # Show form to enter token
-        return HTMLResponse(content="""
-        <html>
-            <head>
-                <title>Reset Password</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 50px; max-width: 500px; margin: 0 auto; }
-                    .form-group { margin-bottom: 20px; }
-                    label { display: block; margin-bottom: 5px; }
-                    input { width: 100%; padding: 10px; box-sizing: border-box; }
-                    button { padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
-                    .error { color: red; }
-                    .success { color: green; }
-                </style>
-            </head>
-            <body>
-                <h1>Reset Password</h1>
-                <p>Please enter your reset token and new password.</p>
-                <form id="resetForm">
-                    <div class="form-group">
-                        <label for="token">Reset Token (from email):</label>
-                        <input type="text" id="token" name="token" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="password">New Password:</label>
-                        <input type="password" id="password" name="password" minlength="8" required>
-                    </div>
-                    <button type="submit">Reset Password</button>
-                </form>
-                <div id="message"></div>
-                <script>
-                    document.getElementById('resetForm').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const token = document.getElementById('token').value;
-                        const password = document.getElementById('password').value;
-                        
-                        const response = await fetch('/auth/reset-password', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ token, new_password: password })
-                        });
-                        
-                        const result = await response.json();
-                        const messageDiv = document.getElementById('message');
-                        
-                        if (response.ok) {
-                            messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
-                            messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
-                        } else {
-                            messageDiv.innerHTML = '<p class="error">' + (result.detail || 'Error resetting password') + '</p>';
-                        }
-                    });
-                </script>
-            </body>
-        </html>
-        """)
-    
+
+
     # Check if token is valid
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
@@ -323,146 +186,9 @@ async def reset_password_page(
         </body>
     </html>
     """)
-@router.get("/verify-email/{token}", response_class=HTMLResponse)
-async def verify_email_page(
-    token: str,
-    db: Session = Depends(get_db)
-):
-    """HTML page to verify email (for direct links from emails)"""
-    verification_token = db.query(EmailVerificationToken).filter(
-        EmailVerificationToken.token == token,
-        EmailVerificationToken.expires_at > datetime.utcnow()
-    ).first()
-    
-    if not verification_token:
-        return """
-        <html>
-            <head>
-                <title>Email Verification Failed</title>
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    .success { color: green; }
-                    .error { color: red; }
-                    .container { max-width: 600px; margin: 0 auto; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1 class="error">❌ Email Verification Failed</h1>
-                    <p>The verification link is invalid or has expired.</p>
-                    <p>Please request a new verification email.</p>
-                </div>
-            </body>
-        </html>
-        """
-    
-    user = db.query(User).filter(User.id == verification_token.user_id).first()
-    if not user:
-        return """
-        <html>
-            <body>
-                <h1>User not found</h1>
-            </body>
-        </html>
-        """
-    
-    user.is_email_verified = True
-    db.delete(verification_token)
-    db.commit()
-    
-    return """
-    <html>
-        <head>
-            <title>Email Verified Successfully</title>
-            <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                .success { color: green; }
-                .container { max-width: 600px; margin: 0 auto; }
-                .button { 
-                    display: inline-block; 
-                    padding: 12px 24px; 
-                    background-color: #4CAF50; 
-                    color: white; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                    margin: 20px 0; 
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1 class="success">✅ Email Verified Successfully!</h1>
-                <p>Your email has been verified. You can now log in to your account.</p>
-                <p><strong>Email:</strong> {email}</p>
-                <a href="/docs#/authentication/login" class="button">Go to Login</a>
-                <p>Or use the API documentation to make login requests.</p>
-            </div>
-        </body>
-    </html>
-    """.format(email=user.email)
 
-@router.get("/reset-password", response_class=HTMLResponse)
-async def reset_password_page(
-    token: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """HTML page to reset password (for direct links from emails)"""
-    if not token:
-        return """
-        <html>
-            <head>
-                <title>Reset Password</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 50px; max-width: 500px; margin: 0 auto; }
-                    .form-group { margin-bottom: 20px; }
-                    label { display: block; margin-bottom: 5px; }
-                    input { width: 100%; padding: 10px; box-sizing: border-box; }
-                    button { padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
-                    .error { color: red; }
-                    .success { color: green; }
-                </style>
-            </head>
-            <body>
-                <h1>Reset Password</h1>
-                <p>Please enter your reset token and new password.</p>
-                <form id="resetForm">
-                    <div class="form-group">
-                        <label for="token">Reset Token (from email):</label>
-                        <input type="text" id="token" name="token" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="password">New Password:</label>
-                        <input type="password" id="password" name="password" minlength="8" required>
-                    </div>
-                    <button type="submit">Reset Password</button>
-                </form>
-                <div id="message"></div>
-                <script>
-                    document.getElementById('resetForm').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const token = document.getElementById('token').value;
-                        const password = document.getElementById('password').value;
-                        
-                        const response = await fetch('/auth/reset-password', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ token, new_password: password })
-                        });
-                        
-                        const result = await response.json();
-                        const messageDiv = document.getElementById('message');
-                        
-                        if (response.ok) {
-                            messageDiv.innerHTML = `<p class="success">✅ ${result.message}</p>`;
-                            messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
-                        } else {
-                            messageDiv.innerHTML = `<p class="error">❌ ${result.detail || 'Error resetting password'}</p>`;
-                        }
-                    });
-                </script>
-            </body>
-        </html>
-        """
+
+
     
     # Check if token is valid
     reset_token = db.query(PasswordResetToken).filter(
@@ -546,6 +272,104 @@ async def reset_password_page(
     </html>
     """
 
+@router.post("/signup/caregiver", response_model=CaregiverSignupResponse)
+async def signup_caregiver(
+    caregiver_data: CaregiverSignupRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Register a new caregiver (non-patient)"""
+    
+    # Check terms agreement
+    if not caregiver_data.agree_to_terms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must agree to the terms and conditions"
+        )
+    
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == caregiver_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Generate username from first and last name
+    base_username = f"{caregiver_data.first_name.lower()}.{caregiver_data.last_name.lower()}"
+    username = base_username
+    
+    # Check if username exists, add numbers if needed
+    counter = 1
+    while db.query(User).filter(User.username == username).first():
+        username = f"{base_username}{counter}"
+        counter += 1
+    
+    # Hash password
+    hashed_password = get_pass_hash(caregiver_data.password)
+    
+    # Create caregiver user
+    user = User(
+        first_name=caregiver_data.first_name,
+        last_name=caregiver_data.last_name,
+        email=caregiver_data.email,
+        username=username,
+        hashed_password=hashed_password,
+        phone_number=caregiver_data.phone_number,
+        is_caregiver=True,  # Mark as caregiver
+        caregiver_type=caregiver_data.caregiver_type,
+        experience_years=caregiver_data.experience_years,
+        is_email_verified=False
+    )
+    
+    # Generate unique caregiver ID
+    user.caregiver_id = user.generate_caregiver_id()
+    
+    # Check if caregiver ID is unique (very unlikely but check anyway)
+    while db.query(User).filter(User.caregiver_id == user.caregiver_id).first():
+        user.caregiver_id = user.generate_caregiver_id()
+    
+    db.add(user)
+    
+    # Generate email verification token
+    verification_token = generate_token()
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    
+    verification = EmailVerificationToken(
+        user_id=user.id,
+        token=verification_token,
+        expires_at=expires_at
+    )
+    
+    db.add(verification)
+    db.commit()
+    db.refresh(user)
+    
+    # Send welcome email to caregiver
+    background_tasks.add_task(
+        email_service.send_caregiver_welcome_email,  # You'll need to create this
+        user.email,
+        f"{user.first_name} {user.last_name}",
+        user.caregiver_id,
+        verification_token
+    )
+    
+    # Create access token
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        user_type="caregiver"  # Important: different user_type
+    )
+    
+    return CaregiverSignupResponse(
+        caregiver_id=user.caregiver_id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        caregiver_type=user.caregiver_type,
+        message=f"Caregiver account created successfully. Your Caregiver ID is: {user.caregiver_id}",
+        access_token=access_token
+    )
+    
 @router.post("/signup", response_model=TokenResponse)
 async def signup(
     user_data: UserCreate,

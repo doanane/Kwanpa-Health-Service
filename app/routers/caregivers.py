@@ -1,85 +1,99 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import List, Optional
+from datetime import datetime
+from pydantic import BaseModel
 from app.database import get_db
-from app.auth.security import get_current_active_user_or_admin_or_admin_or_admin_or_admin_or_admin
+from app.auth.security import get_current_user
+from app.models.user import User
+from app.models.caregiver import CaregiverRelationship  
+
+
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from datetime import datetime
+from pydantic import BaseModel
+from app.database import get_db
+from app.auth.security import get_current_user
 from app.models.user import User
 from app.models.caregiver import CaregiverRelationship
-from app.models.user import UserProfile
-from app.models.health import HealthData
-
 router = APIRouter(prefix="/caregivers", tags=["caregivers"])
 
-@router.post("/volunteer")
-async def volunteer_as_caregiver(
-    db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
-):
-    current_user.is_caregiver = True
-    db.commit()
-    
-    return {
-        "message": "Successfully registered as caregiver volunteer",
-        "user_id": current_user.id,
-        "is_caregiver": True
-    }
 
-@router.post("/request")
-async def request_caregiver_relationship(
-    patient_id: int,
-    relationship_type: str,
-    db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+class CaregiverUpdateRequest(BaseModel):
+    phone_number: Optional[str] = None
+
+class AssignPatientRequest(BaseModel):
+    patient_id: int
+    relationship_type: str = "family"
+
+
+class CaregiverProfileResponse(BaseModel):
+    id: int
+    email: str
+    username: Optional[str]
+    phone_number: Optional[str]
+    is_caregiver: bool
+    assigned_patients_count: int
+    created_at: datetime
+
+class CaregiverPatientResponse(BaseModel):
+    patient_id: int
+    email: str
+    username: Optional[str]
+    phone_number: Optional[str]
+    relationship_type: str
+    status: str
+    assigned_since: datetime
+
+
+@router.get("/test")
+async def test_endpoint():
+    """Test if caregivers router is working"""
+    return {"message": "Caregivers router is working!"}
+
+@router.get("/profile", response_model=CaregiverProfileResponse)
+async def get_caregiver_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    if not current_user.is_caregiver:
+    """Get caregiver profile information"""
+    if not getattr(current_user, 'is_caregiver', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You must be registered as a caregiver first"
+            detail="User is not a caregiver"
         )
     
-    patient = db.query(User).filter(User.id == patient_id).first()
-    if not patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Patient not found"
-        )
     
-    existing = db.query(CaregiverRelationship).filter(
+    assignments = db.query(CaregiverRelationship).filter(
         CaregiverRelationship.caregiver_id == current_user.id,
-        CaregiverRelationship.patient_id == patient_id
-    ).first()
-    
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Caregiver relationship already exists or pending"
-        )
-    
-    relationship = CaregiverRelationship(
-        caregiver_id=current_user.id,
-        patient_id=patient_id,
-        relationship_type=relationship_type,
-        status="pending"
-    )
-    
-    db.add(relationship)
-    db.commit()
+        CaregiverRelationship.status == "approved"
+    ).all()
     
     return {
-        "message": "Caregiver request sent successfully",
-        "relationship_id": relationship.id,
-        "status": "pending"
+        "id": current_user.id,
+        "email": current_user.email or "",
+        "username": getattr(current_user, 'username', None),
+        "phone_number": getattr(current_user, 'phone_number', None),
+        "is_caregiver": getattr(current_user, 'is_caregiver', False),
+        "assigned_patients_count": len(assignments),
+        "created_at": getattr(current_user, 'created_at', datetime.utcnow())
     }
 
-@router.get("/dashboard")
-async def get_caregiver_dashboard(
-    db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+@router.get("/patients", response_model=List[CaregiverPatientResponse])
+async def get_assigned_patients(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    if not current_user.is_caregiver:
+    """Get all patients assigned to this caregiver"""
+    if not getattr(current_user, 'is_caregiver', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not registered as a caregiver"
+            detail="User is not a caregiver"
         )
+    
     
     relationships = db.query(CaregiverRelationship).filter(
         CaregiverRelationship.caregiver_id == current_user.id,
@@ -90,117 +104,211 @@ async def get_caregiver_dashboard(
     for rel in relationships:
         patient = db.query(User).filter(User.id == rel.patient_id).first()
         if patient:
-            profile = db.query(UserProfile).filter(UserProfile.user_id == patient.id).first()
-            latest_health = db.query(HealthData).filter(
-                HealthData.user_id == patient.id
-            ).order_by(HealthData.date.desc()).first()
-            
             patients.append({
                 "patient_id": patient.id,
-                "patient_name": profile.full_name if profile else "Unknown",
+                "email": patient.email or "",
+                "username": getattr(patient, 'username', None),
+                "phone_number": getattr(patient, 'phone_number', None),
                 "relationship_type": rel.relationship_type,
-                "latest_heart_rate": latest_health.heart_rate if latest_health else None,
-                "latest_blood_pressure": latest_health.blood_pressure if latest_health else None,
-                "status": "Stable" if latest_health and latest_health.heart_rate and latest_health.heart_rate < 100 else "Monitor"
+                "status": rel.status,
+                "assigned_since": rel.created_at
             })
     
-    return {
-        "caregiver_id": current_user.id,
-        "total_patients": len(patients),
-        "patients": patients
-    }
+    return patients
 
-@router.get("/patients/{patient_id}/insights")
-async def get_patient_insights(
-    patient_id: int,
-    db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
+@router.post("/request-access")
+async def request_patient_access(
+    request: AssignPatientRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    relationship = db.query(CaregiverRelationship).filter(
-        CaregiverRelationship.caregiver_id == current_user.id,
-        CaregiverRelationship.patient_id == patient_id,
-        CaregiverRelationship.status == "approved"
-    ).first()
-    
-    if not relationship:
+    """Request access to a patient as caregiver"""
+    if not getattr(current_user, 'is_caregiver', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view this patient's data"
+            detail="User is not a caregiver"
         )
     
-    patient = db.query(User).filter(User.id == patient_id).first()
-    profile = db.query(UserProfile).filter(UserProfile.user_id == patient_id).first()
     
-    latest_health = db.query(HealthData).filter(
-        HealthData.user_id == patient_id
-    ).order_by(HealthData.date.desc()).first()
+    patient = db.query(User).filter(User.id == request.patient_id).first()
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient not found"
+        )
     
-    from datetime import datetime, timedelta
-    week_ago = datetime.now() - timedelta(days=7)
     
-    weekly_data = db.query(HealthData).filter(
-        HealthData.user_id == patient_id,
-        HealthData.date >= week_ago
-    ).all()
-    
-    avg_heart_rate = None
-    if weekly_data:
-        heart_rates = [d.heart_rate for d in weekly_data if d.heart_rate]
-        if heart_rates:
-            avg_heart_rate = sum(heart_rates) / len(heart_rates)
-    
-    return {
-        "patient_id": patient_id,
-        "patient_name": profile.full_name if profile else "Unknown",
-        "latest_health_data": {
-            "heart_rate": latest_health.heart_rate if latest_health else None,
-            "blood_pressure": latest_health.blood_pressure if latest_health else None,
-            "blood_glucose": latest_health.blood_glucose if latest_health else None,
-            "last_updated": latest_health.date if latest_health else None
-        },
-        "weekly_average_heart_rate": avg_heart_rate,
-        "insights": "Patient shows stable vital signs. Continue monitoring daily.",
-        "recommendations": [
-            "Ensure patient takes medication on time",
-            "Monitor blood sugar levels before meals",
-            "Encourage 30 minutes of daily walking"
-        ]
-    }
-
-@router.post("/patients/{patient_id}/message")
-async def send_message_to_patient(
-    patient_id: int,
-    message: str,
-    db: Session = Depends(get_db),
-    current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
-):
-    relationship = db.query(CaregiverRelationship).filter(
+    existing = db.query(CaregiverRelationship).filter(
         CaregiverRelationship.caregiver_id == current_user.id,
-        CaregiverRelationship.patient_id == patient_id,
-        CaregiverRelationship.status == "approved"
+        CaregiverRelationship.patient_id == request.patient_id
     ).first()
     
-    if not relationship:
+    if existing:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to send messages to this patient"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Access request already exists"
         )
     
-    from app.models.notification import Notification
     
-    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
-    caregiver_name = profile.full_name if profile else "Caregiver"
-    
-    notification = Notification(
-        user_id=patient_id,
-        notification_type="caregiver",
-        title=f"Message from {caregiver_name}",
-        message=message,
-        sender_id=current_user.id,
-        sender_type="caregiver"
+    relationship = CaregiverRelationship(
+        caregiver_id=current_user.id,
+        patient_id=request.patient_id,
+        relationship_type=request.relationship_type,
+        status="pending"
     )
     
-    db.add(notification)
+    db.add(relationship)
     db.commit()
+    db.refresh(relationship)
     
-    return {"message": "Message sent successfully", "notification_id": notification.id}
+    return {
+        "message": "Access request sent successfully",
+        "request_id": relationship.id,
+        "status": relationship.status
+    }
+
+@router.put("/profile")
+async def update_caregiver_profile(
+    request: CaregiverUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update caregiver profile settings"""
+    if not getattr(current_user, 'is_caregiver', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a caregiver"
+        )
+    
+    if request.phone_number is not None:
+        current_user.phone_number = request.phone_number
+        db.commit()
+    
+    return {"message": "Profile updated successfully"}
+
+
+
+
+@router.post("/connect-patient")
+async def connect_with_patient(
+    patient_caregiver_id: str = Body(..., embed=True, description="Patient's Caregiver ID or Patient ID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Connect with a patient using their ID"""
+    if not current_user.is_caregiver:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only caregivers can connect with patients"
+        )
+    
+    
+    patient = db.query(User).filter(
+        (User.caregiver_id == patient_caregiver_id) | 
+        (User.patient_id == patient_caregiver_id)
+    ).first()
+    
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient not found"
+        )
+    
+    if patient.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot connect to yourself"
+        )
+    
+    
+    existing = db.query(CaregiverRelationship).filter(
+        CaregiverRelationship.caregiver_id == current_user.id,
+        CaregiverRelationship.patient_id == patient.id
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Already connected with {patient.email}"
+        )
+    
+    
+    relationship = CaregiverRelationship(
+        caregiver_id=current_user.id,
+        patient_id=patient.id,
+        relationship_type="professional",  
+        status="pending"  
+    )
+    
+    db.add(relationship)
+    db.commit()
+    db.refresh(relationship)
+    
+    return {
+        "message": "Connection request sent to patient",
+        "patient_email": patient.email,
+        "patient_name": f"{getattr(patient, 'first_name', '')} {getattr(patient, 'last_name', '')}".strip(),
+        "request_id": relationship.id,
+        "status": relationship.status
+    }
+
+@router.get("/my-id")
+async def get_my_caregiver_id(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get caregiver's unique ID"""
+    if not current_user.is_caregiver:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a caregiver"
+        )
+    
+    
+    if not current_user.caregiver_id:
+        current_user.caregiver_id = current_user.generate_caregiver_id()
+        db.commit()
+    
+    return {
+        "caregiver_id": current_user.caregiver_id,
+        "name": f"{getattr(current_user, 'first_name', '')} {getattr(current_user, 'last_name', '')}".strip(),
+        "email": current_user.email,
+        "qr_code_url": f"/caregivers/qr/{current_user.caregiver_id}"  
+    }
+@router.get("/dashboard")
+async def caregiver_dashboard(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get caregiver dashboard summary"""
+    if not getattr(current_user, 'is_caregiver', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a caregiver"
+        )
+    
+    
+    relationships = db.query(CaregiverRelationship).filter(
+        CaregiverRelationship.caregiver_id == current_user.id,
+        CaregiverRelationship.status == "approved"
+    ).all()
+    
+    patient_ids = [rel.patient_id for rel in relationships]
+    
+    return {
+        "total_patients": len(patient_ids),
+        "pending_requests": db.query(CaregiverRelationship).filter(
+            CaregiverRelationship.caregiver_id == current_user.id,
+            CaregiverRelationship.status == "pending"
+        ).count(),
+        "caregiver_status": "active",
+        "recent_activity": [
+            {
+                "patient_id": rel.patient_id,
+                "relationship_type": rel.relationship_type,
+                "status": rel.status,
+                "since": rel.created_at
+            }
+            for rel in relationships[:5]  
+        ]
+    }

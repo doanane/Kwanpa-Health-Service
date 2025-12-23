@@ -45,59 +45,8 @@ async def redirect_reset_password(token: str = None):
         return RedirectResponse(url=f"/auth/reset-password-page?token={token}")
     return RedirectResponse(url="/auth/reset-password-page")
 
-@app.get("/welcome", response_class=HTMLResponse)
-async def welcome_page():
-    """Welcome page for new users"""
-    return """
-    <html>
-        <head>
-            <title>HEWAL3 Health System</title>
-            <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                .container { max-width: 800px; margin: 0 auto; }
-                .logo { color: margin-bottom: 20px; }
-                .button { 
-                    display: inline-block; 
-                    padding: 12px 24px; 
-                    margin: 10px;
-                    background-color: 
-                    color: white; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                }
-                .api-button { background-color: 
-                .section { margin: 40px 0; padding: 20px; background: 
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="logo">HEWAL3</div>
-                <h1>Health Management System</h1>
-                <p>AI-powered health tracking and caregiver coordination</p>
-                
-                <div class="section">
-                    <h2>Get Started</h2>
-                    <a href="/docs" class="button api-button">API Documentation</a>
-                    <a href="/docsclass="button">Sign Up</a>
-                    <a href="/docsclass="button">Login</a>
-                </div>
-                
-                <div class="section">
-                    <h2>Features</h2>
-                    <p>• Health Data Tracking • AI Food Analysis • Emergency Alerts</p>
-                    <p>• Caregiver Portal • Doctor Dashboard • Progress Monitoring</p>
-                </div>
-                
-                <div class="section">
-                    <h2>Email Verification & Password Reset</h2>
-                    <p>If you received an email verification or password reset link:</p>
-                    <p>• Click the link in your email</p>
-                    <p>• Or visit: <code>/auth/verify-email-page/{token}</code> or <code>/auth/reset-password-page?token={token}</code></p>
-                </div>
-            </div>
-        </body>
-    </html>
-    """
+
+
 @app.on_event("startup")
 def startup_event():
     try:
@@ -141,13 +90,22 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-
-try:
-    from app.routers.caregivers import router as caregivers_router
-    app.include_router(caregivers_router)
-    logger.info("Caregivers router loaded")
-except ImportError as e:
-    logger.warning(f"Caregivers router not loaded: {e}")
+# try:
+#     from app.routers.caregivers import router as caregivers_router
+#     app.include_router(caregivers_router)
+#     logger.info("✅ Caregivers router loaded successfully")
+#     logger.info(f"   Prefix: {caregivers_router.prefix}")
+#     logger.info(f"   Tags: {caregivers_router.tags}")
+    
+#     # Log all caregivers routes
+#     for route in caregivers_router.routes:
+#         if hasattr(route, 'path'):
+#             logger.info(f"   - {route.path}")
+            
+# except Exception as e:  # Change from ImportError to Exception
+#     logger.error(f"❌ Failed to load caregivers router: {e}")
+#     import traceback
+#     traceback.print_exc() 
 
 try:
     from app.routers.doctors import router as doctors_router
@@ -159,7 +117,7 @@ except ImportError as e:
 try:
     from app.routers.leaderboard import router as leaderboard_router
     app.include_router(leaderboard_router)
-    logger.info("Leaderboard router loaded")
+    # logger.info("Leaderboard router loaded")
 except ImportError as e:
     logger.warning(f"Leaderboard router not loaded: {e}")
 
