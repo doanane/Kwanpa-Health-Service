@@ -213,6 +213,71 @@ class EmailService:
         
         return self.send_email(user_email, subject, html_content, text_content)
     
+
+
+    async def send_caregiver_welcome_email(self, to_email: str, full_name: str, caregiver_id: str, verification_token: str):
+        """Send welcome email to new caregiver"""
+        subject = f"Welcome to HEWAL3 Caregiver Portal - Your ID: {caregiver_id}"
+        
+        verification_url = f"{self.base_url}/auth/verify-email-page/{verification_token}"
+        
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <h1 style="color: #2c3e50;">Welcome to HEWAL3 Caregiver Portal!</h1>
+                    
+                    <p>Hello {full_name},</p>
+                    
+                    <p>Thank you for registering as a caregiver on HEWAL3. You can now connect with patients and help manage their health.</p>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <h3 style="margin-top: 0;">Your Caregiver ID:</h3>
+                        <div style="font-size: 24px; font-weight: bold; color: #2c3e50; padding: 10px; background-color: white; border-radius: 5px; text-align: center;">
+                            {caregiver_id}
+                        </div>
+                        <p style="font-size: 14px; color: #666; text-align: center;">
+                            Share this ID with patients so they can connect with you.
+                        </p>
+                    </div>
+                    
+                    <p><strong>Next steps:</strong></p>
+                    <ol>
+                        <li>Verify your email address by clicking the button below</li>
+                        <li>Complete your caregiver profile</li>
+                        <li>Connect with patients using your Caregiver ID</li>
+                    </ol>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{verification_url}" style="display: inline-block; padding: 12px 24px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">
+                            Verify Email Address
+                        </a>
+                    </div>
+                    
+                    <p>Or copy and paste this link in your browser:<br>
+                    <code style="background-color: #f8f9fa; padding: 5px 10px; border-radius: 3px; display: inline-block; margin-top: 10px;">{verification_url}</code></p>
+                    
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+                    
+                    <p style="font-size: 14px; color: #666;">
+                        If you didn't create this account, please ignore this email.<br>
+                        Need help? Contact our support team at support@hewal3.com
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+        
+        # Make sure this returns an awaitable coroutine
+        try:
+            result = await self.send_email(to_email, subject, html_content)
+            logger.info(f"✅ Caregiver welcome email sent to {to_email}")
+            return result
+        except Exception as e:
+            logger.error(f"❌ Failed to send caregiver welcome email: {e}")
+            return False
+
+
     def send_password_reset_email(self, user_email: str, reset_token: str):
         """Send password reset email"""
         reset_link = f"{self.base_url}/auth/reset-password-page?token={reset_token}"

@@ -45,59 +45,8 @@ async def redirect_reset_password(token: str = None):
         return RedirectResponse(url=f"/auth/reset-password-page?token={token}")
     return RedirectResponse(url="/auth/reset-password-page")
 
-@app.get("/welcome", response_class=HTMLResponse)
-async def welcome_page():
-    """Welcome page for new users"""
-    return """
-    <html>
-        <head>
-            <title>HEWAL3 Health System</title>
-            <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                .container { max-width: 800px; margin: 0 auto; }
-                .logo { color: margin-bottom: 20px; }
-                .button { 
-                    display: inline-block; 
-                    padding: 12px 24px; 
-                    margin: 10px;
-                    background-color: 
-                    color: white; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                }
-                .api-button { background-color: 
-                .section { margin: 40px 0; padding: 20px; background: 
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="logo">HEWAL3</div>
-                <h1>Health Management System</h1>
-                <p>AI-powered health tracking and caregiver coordination</p>
-                
-                <div class="section">
-                    <h2>Get Started</h2>
-                    <a href="/docs" class="button api-button">API Documentation</a>
-                    <a href="/docsclass="button">Sign Up</a>
-                    <a href="/docsclass="button">Login</a>
-                </div>
-                
-                <div class="section">
-                    <h2>Features</h2>
-                    <p>• Health Data Tracking • AI Food Analysis • Emergency Alerts</p>
-                    <p>• Caregiver Portal • Doctor Dashboard • Progress Monitoring</p>
-                </div>
-                
-                <div class="section">
-                    <h2>Email Verification & Password Reset</h2>
-                    <p>If you received an email verification or password reset link:</p>
-                    <p>• Click the link in your email</p>
-                    <p>• Or visit: <code>/auth/verify-email-page/{token}</code> or <code>/auth/reset-password-page?token={token}</code></p>
-                </div>
-            </div>
-        </body>
-    </html>
-    """
+
+
 @app.on_event("startup")
 def startup_event():
     try:
@@ -125,11 +74,11 @@ try:
     logger.info("Superadmin router loaded successfully")
     
     
-    logger.info("Superadmin endpoints registered:")
-    for route in superadmin_router.routes:
-        if hasattr(route, 'methods'):
-            methods = ', '.join(route.methods)
-            logger.info(f"  {methods} {route.path}")
+    # logger.info("Superadmin endpoints registered:")
+    # for route in superadmin_router.routes:
+    #     if hasattr(route, 'methods'):
+    #         methods = ', '.join(route.methods)
+    #         logger.info(f"  {methods} {route.path}")
             
 except ImportError as e:
     logger.error(f"Failed to import superadmin router: {e}")
@@ -141,25 +90,33 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-
+# In app/main.py, ensure this section exists:
 try:
     from app.routers.caregivers import router as caregivers_router
     app.include_router(caregivers_router)
-    logger.info("Caregivers router loaded")
-except ImportError as e:
-    logger.warning(f"Caregivers router not loaded: {e}")
+    # logger.info("✅ Caregivers router loaded successfully")
+    
+    # # Log routes for debugging
+    # for route in caregivers_router.routes:
+    #     if hasattr(route, 'path'):
+    #         logger.info(f"   - {route.path}")
+            
+except Exception as e:
+    logger.error(f"❌ Failed to load caregivers router: {e}")
+    import traceback
+    traceback.print_exc()
 
-try:
-    from app.routers.doctors import router as doctors_router
-    app.include_router(doctors_router)
-    logger.info("Doctors router loaded")
-except ImportError as e:
-    logger.warning(f"Doctors router not loaded: {e}")
+# try:
+#     from app.routers.doctors import router as doctors_router
+#     app.include_router(doctors_router)
+#     logger.info("Doctors router loaded")
+# except ImportError as e:
+#     logger.warning(f"Doctors router not loaded: {e}")
 
 try:
     from app.routers.leaderboard import router as leaderboard_router
     app.include_router(leaderboard_router)
-    logger.info("Leaderboard router loaded")
+    # logger.info("Leaderboard router loaded")
 except ImportError as e:
     logger.warning(f"Leaderboard router not loaded: {e}")
 
@@ -171,12 +128,12 @@ except ImportError as e:
     logger.warning(f"Admin router not loaded: {e}")
 
 
-try:
-    from app.routers.google_auth import router as google_auth_router
-    app.include_router(google_auth_router)
-    logger.info("✅ Google OAuth router loaded successfully")
-except ImportError as e:
-    logger.error(f"❌ Failed to import Google Auth router: {e}")
+# try:
+#     from app.routers.google_auth import router as google_auth_router
+#     app.include_router(google_auth_router)
+#     logger.info("✅ Google OAuth router loaded successfully")
+# except ImportError as e:
+#     logger.error(f"❌ Failed to import Google Auth router: {e}")
 
 
 app.add_middleware(
@@ -185,6 +142,7 @@ app.add_middleware(
         "https://kwanpa-health-hub-six.vercel.app",
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:8001",
         "http://localhost:8000"
     ],
     allow_credentials=True,

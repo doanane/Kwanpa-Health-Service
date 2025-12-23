@@ -19,13 +19,20 @@ class User(Base):
     apple_id = Column(String, unique=True, nullable=True)
     is_active = Column(Boolean, default=True)
     is_caregiver = Column(Boolean, default=False)
+    caregiver_id = Column(String, unique=True, index=True, nullable=True)
    
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    caregiver_type = Column(String, nullable=True)  
+    experience_years = Column(Integer, nullable=True)
+
     is_email_verified = Column(Boolean, default=False)
     phone_number = Column(String, nullable=True)
     mfa_enabled = Column(Boolean, default=False)
     last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    is_available = Column(Boolean, default=True)
+    max_patients = Column(Integer, default=5)
     
     emergency_contacts = relationship("EmergencyContact", back_populates="user_rel", cascade="all, delete-orphan")
     emergency_events = relationship("EmergencyEvent", back_populates="user_rel", cascade="all, delete-orphan")
@@ -49,6 +56,14 @@ class User(Base):
         back_populates="caregiver",
         overlaps="caregiving_for"
     )
+
+    def generate_caregiver_id(self):
+        """Generate caregiver ID: CG + 8 random alphanumeric characters"""
+        import random
+        import string
+        chars = string.ascii_uppercase + string.digits
+        random_part = ''.join(random.choice(chars) for _ in range(8))
+        return f"CG{random_part}"
 
     def generate_patient_id(self):
         """Generate patient ID: username + 5 random digits"""

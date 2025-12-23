@@ -12,10 +12,10 @@ class SMSService:
         self.base_url = getattr(settings, 'INFOBIP_BASE_URL', '')
         self.sender_number = getattr(settings, 'INFOBIP_SENDER_NUMBER', '+447491163443')
         
-        if self.api_key and self.base_url:
-            logger.info(f"✅ Infobip SMS service initialized with sender: {self.sender_number}")
-        else:
-            logger.warning("Infobip credentials not fully configured in .env file")
+        # if self.api_key and self.base_url:
+        #     logger.info(f"✅ Infobip SMS service initialized with sender: {self.sender_number}")
+        # else:
+        #     logger.warning("Infobip credentials not fully configured in .env file")
     
     def send_sms(self, to_phone: str, message: str) -> bool:
         """Demo mode - always return success without sending"""

@@ -73,10 +73,10 @@ def create_tables(preserve_data: bool = True):
         
         Base.metadata.create_all(bind=engine)
         
-        if preserve_data:
-            logger.info("✅ Database tables verified - existing data preserved")
-        else:
-            logger.info("✅ Database tables recreated - all data cleared")
+        # if preserve_data:
+        #     logger.info("✅ Database tables verified - existing data preserved")
+        # else:
+        #     logger.info("✅ Database tables recreated - all data cleared")
         
     except Exception as e:
         logger.error(f"Error creating tables: {e}")

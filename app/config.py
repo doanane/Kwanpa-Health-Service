@@ -25,7 +25,7 @@ class Settings(BaseModel):
     
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
-    CORS_ORIGINS: List[str] = eval(os.getenv("CORS_ORIGINS", '["http://localhost:3000", "http://localhost:5173"]'))
+    CORS_ORIGINS: List[str] = eval(os.getenv("CORS_ORIGINS", '["http://localhost:3000","http://localhost:8081", "http://localhost:5173"]'))
     
     # Email Service
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
