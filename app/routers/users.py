@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+# app/routers/users.py - COMPLETE VERSION
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timedelta
@@ -6,16 +7,17 @@ import os
 import shutil
 from pydantic import BaseModel
 from app.database import get_db
-from app.auth.security import get_current_user 
+from app.auth.security import get_current_user
 from app.models.user import User, UserProfile, UserDevice
-# from app.models.health import HealthData, EmergencyContact, EmergencyEvent
+from app.models.health import HealthData 
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-# Pydantic Models
+# ====== PYDANTIC MODELS ======
+
 class ProfileUpdateRequest(BaseModel):
     full_name: Optional[str] = None
     gender: Optional[str] = None
@@ -54,25 +56,43 @@ class ProfileResponse(BaseModel):
     emergency_contact_relationship: Optional[str]
     is_caregiver: bool
     patient_id: Optional[str]
+    profile_image_url: Optional[str]
     created_at: datetime
 
-# Endpoints
+class UserInfoResponse(BaseModel):
+    id: int
+    email: str
+    username: Optional[str]
+    patient_id: Optional[str]
+    is_caregiver: bool
+    caregiver_id: Optional[str]
+    is_email_verified: bool
+    phone_number: Optional[str]
+    created_at: datetime
+    last_login: Optional[datetime]
+
+class UploadImageResponse(BaseModel):
+    message: str
+    image_url: str
+    user_id: int
+    filename: str
+
+# ====== ENDPOINTS ======
 
 @router.get("/test")
-async def test_users():
-    """Test endpoint for users router"""
+async def test_endpoint():
+    """Test users endpoint"""
     return {"message": "Users router is working", "timestamp": datetime.utcnow().isoformat()}
 
 @router.get("/profile", response_model=ProfileResponse)
 async def get_profile(
-    current_user: User = Depends(get_current_user), 
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get user profile"""
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     
     if not profile:
-       
         profile = UserProfile(user_id=current_user.id)
         db.add(profile)
         db.commit()
@@ -100,13 +120,14 @@ async def get_profile(
         "emergency_contact_relationship": profile.emergency_contact_relationship,
         "is_caregiver": getattr(current_user, 'is_caregiver', False),
         "patient_id": current_user.patient_id,
+        "profile_image_url": getattr(profile, 'profile_image_url', None),
         "created_at": current_user.created_at
     }
 
 @router.put("/profile")
 async def update_profile(
     profile_data: ProfileUpdateRequest,
-    current_user: User = Depends(get_current_user), 
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update user profile"""
@@ -116,19 +137,16 @@ async def update_profile(
         profile = UserProfile(user_id=current_user.id)
         db.add(profile)
     
-   
     update_fields = profile_data.dict(exclude_unset=True)
     for field, value in update_fields.items():
         if value is not None:
             setattr(profile, field, value)
     
-   
     if profile_data.weight and profile_data.height:
-        height_m = profile_data.height / 100 
+        height_m = profile_data.height / 100
         if height_m > 0:
             profile.bmi = round(profile_data.weight / (height_m ** 2), 1)
     
-   
     essential_fields = ['full_name', 'gender', 'age', 'weight', 'height']
     if all(getattr(profile, field, None) for field in essential_fields):
         profile.profile_completed = True
@@ -138,40 +156,87 @@ async def update_profile(
     
     return {"message": "Profile updated successfully", "profile_completed": profile.profile_completed}
 
-@router.post("/profile/photo")
-async def upload_profile_photo(
+@router.post("/upload-profile-image", response_model=UploadImageResponse)
+async def upload_profile_image(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user), 
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload profile photo"""
-   
-    upload_dir = "uploads/profile_photos"
+    """Upload profile image"""
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only image files are allowed (JPG, PNG, GIF, WebP)"
+        )
+    
+    max_size = 5 * 1024 * 1024
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+    
+    if file_size > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds 5MB limit"
+        )
+    
+    upload_dir = "uploads/profile_images"
     os.makedirs(upload_dir, exist_ok=True)
     
-   
-    file_ext = os.path.splitext(file.filename)[1]
-    filename = f"{current_user.id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}{file_ext}"
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = f"user_{current_user.id}_{timestamp}{file_ext}"
     file_path = os.path.join(upload_dir, filename)
     
-   
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}"
+        )
     
-   
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
         profile = UserProfile(user_id=current_user.id)
         db.add(profile)
     
-    profile.photo_url = f"/uploads/profile_photos/{filename}"
+    profile.profile_image_url = f"/uploads/profile_images/{filename}"
     db.commit()
     
-    return {"message": "Profile photo uploaded", "photo_url": profile.photo_url}
+    return {
+        "message": "Profile image uploaded successfully",
+        "image_url": profile.profile_image_url,
+        "user_id": current_user.id,
+        "filename": filename
+    }
 
-@router.get("/me")
+@router.get("/profile-image")
+async def get_profile_image(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's profile image URL"""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    
+    if not profile or not getattr(profile, 'profile_image_url', None):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No profile image found"
+        )
+    
+    return {
+        "image_url": profile.profile_image_url,
+        "user_id": current_user.id,
+        "full_url": f"http://localhost:8000{profile.profile_image_url}"
+    }
+
+@router.get("/me", response_model=UserInfoResponse)
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user) 
+    current_user: User = Depends(get_current_user)
 ):
     """Get current user information"""
     return {
@@ -187,83 +252,107 @@ async def get_current_user_info(
         "last_login": current_user.last_login
     }
 
-@router.get("/devices")
-async def get_user_devices(
-    current_user: User = Depends(get_current_user), 
+@router.get("/search")
+async def search_users(
+    query: str = Query(..., min_length=2, description="Search by email, username, or patient ID"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get user's registered devices"""
-    devices = db.query(UserDevice).filter(UserDevice.user_id == current_user.id).all()
+    """Search for users (patients or caregivers)"""
+    if not query or len(query) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Search query must be at least 2 characters"
+        )
+    
+    users = db.query(User).filter(
+        (User.email.ilike(f"%{query}%")) |
+        (User.username.ilike(f"%{query}%")) |
+        (User.patient_id.ilike(f"%{query}%")) |
+        (User.caregiver_id.ilike(f"%{query}%"))
+    ).limit(20).all()
     
     return [
         {
-            "id": device.id,
-            "device_type": device.device_type,
-            "device_name": device.device_name,
-            "device_id": device.device_id,
-            "connected_at": device.connected_at
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "patient_id": user.patient_id,
+            "caregiver_id": getattr(user, 'caregiver_id', None),
+            "is_caregiver": getattr(user, 'is_caregiver', False),
+            "is_active": user.is_active
         }
-        for device in devices
+        for user in users
     ]
 
-@router.post("/devices")
-async def register_device(
-    device_type: str = Form(...),
-    device_name: str = Form(...),
-    device_id: str = Form(...),
-    fcm_token: Optional[str] = Form(None),
-    current_user: User = Depends(get_current_user), 
+@router.get("/emergency-contacts")
+async def get_emergency_contacts(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Register a new device for the user"""
-   
-    existing = db.query(UserDevice).filter(
-        UserDevice.user_id == current_user.id,
-        UserDevice.device_id == device_id
-    ).first()
+    """Get user's emergency contacts"""
+    contacts = db.query(EmergencyContact).filter(
+        EmergencyContact.user_id == current_user.id
+    ).all()
     
-    if existing:
-       
-        existing.device_type = device_type
-        existing.device_name = device_name
-        existing.fcm_token = fcm_token
-        db.commit()
-        return {"message": "Device updated", "device_id": existing.id}
-    
-   
-    device = UserDevice(
+    return [
+        {
+            "id": contact.id,
+            "name": contact.name,
+            "phone": contact.phone,
+            "relationship": contact.relationship,
+            "is_primary": contact.is_primary
+        }
+        for contact in contacts
+    ]
+
+@router.post("/emergency-contacts")
+async def add_emergency_contact(
+    name: str = Form(...),
+    phone: str = Form(...),
+    relationship: str = Form(...),
+    is_primary: bool = Form(False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Add emergency contact"""
+    contact = EmergencyContact(
         user_id=current_user.id,
-        device_type=device_type,
-        device_name=device_name,
-        device_id=device_id,
-        fcm_token=fcm_token
+        name=name,
+        phone=phone,
+        relationship=relationship,
+        is_primary=is_primary
     )
     
-    db.add(device)
+    db.add(contact)
     db.commit()
-    db.refresh(device)
+    db.refresh(contact)
     
-    return {"message": "Device registered", "device_id": device.id}
+    return {
+        "message": "Emergency contact added",
+        "contact_id": contact.id,
+        "name": contact.name
+    }
 
-@router.delete("/devices/{device_id}")
-async def unregister_device(
-    device_id: str,
-    current_user: User = Depends(get_current_user), 
+@router.delete("/emergency-contacts/{contact_id}")
+async def delete_emergency_contact(
+    contact_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Unregister a device"""
-    device = db.query(UserDevice).filter(
-        UserDevice.user_id == current_user.id,
-        UserDevice.device_id == device_id
+    """Delete emergency contact"""
+    contact = db.query(EmergencyContact).filter(
+        EmergencyContact.id == contact_id,
+        EmergencyContact.user_id == current_user.id
     ).first()
     
-    if not device:
+    if not contact:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Device not found"
+            detail="Emergency contact not found"
         )
     
-    db.delete(device)
+    db.delete(contact)
     db.commit()
     
-    return {"message": "Device unregistered"}
+    return {"message": "Emergency contact deleted"}
