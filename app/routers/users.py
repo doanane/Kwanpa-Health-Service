@@ -1,4 +1,4 @@
-# app/routers/users.py - COMPLETE VERSION
+
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-# ====== PYDANTIC MODELS ======
+
 
 class ProfileUpdateRequest(BaseModel):
     full_name: Optional[str] = None
@@ -77,7 +77,7 @@ class UploadImageResponse(BaseModel):
     user_id: int
     filename: str
 
-# ====== ENDPOINTS ======
+
 
 @router.get("/test")
 async def test_endpoint():
