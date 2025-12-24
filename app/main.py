@@ -28,6 +28,9 @@ app.add_middleware(
 )
 
 os.makedirs("uploads", exist_ok=True)
+os.makedirs("uploads/profile_images", exist_ok=True)
+os.makedirs("uploads/profile_photos", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 from fastapi.responses import RedirectResponse, HTMLResponse
