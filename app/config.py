@@ -41,10 +41,10 @@ class Settings(BaseModel):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "https://hewal3-backend-api-aya3dzgefte4b3c3.southafricanorth-01.azurewebsites.net/auth/google/callback")
     
     # Allowed Origins
-    ALLOWED_ORIGINS: List[str] = eval(os.getenv("ALLOWED_ORIGINS", '["http://localhost:3000", "http://localhost:5173"]'))
+    ALLOWED_ORIGINS: List[str] = eval(os.getenv("ALLOWED_ORIGINS", '["http://localhost:3000", "http://localhost:8081", "http://localhost:5173"]'))
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
@@ -73,7 +73,7 @@ class Settings(BaseModel):
     
     # Base URLs
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8081")
     API_PREFIX: str = os.getenv("API_PREFIX", "")
     
     # Security Settings (aliases for compatibility)
