@@ -300,8 +300,8 @@ async def signup_caregiver(
     
     hashed_password = get_pass_hash(caregiver_data.password)
     
-    # This enerate a high-entropy caregiver_id using UUID to minimize the risk of collisions,
-    # rather than relying on a simple random approach with a manual uniqueness check.
+    
+    
     caregiver_id = f"CG{uuid.uuid4().hex[:8].upper()}"
     
     while db.query(User).filter(User.caregiver_id == caregiver_id).first():
