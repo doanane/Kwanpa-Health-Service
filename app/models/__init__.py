@@ -17,9 +17,20 @@ from .health import (
     HealthData, 
     FoodLog, 
     WeeklyProgress, 
-    HealthInsight,
-    EmergencyContact
+    HealthInsight
 )
+
+from .emergency import (
+    EmergencyContact,
+    EmergencyEvent
+)
+
+from .iot_device import (
+    IoTDevice,
+    VitalReading
+)
+
+from .notification import Notification
 
 __all__ = [
     
@@ -46,5 +57,15 @@ __all__ = [
     "FoodLog",
     "WeeklyProgress",
     "HealthInsight",
-    "EmergencyContact"
+    
+    
+    "EmergencyContact",
+    "EmergencyEvent",
+    
+    
+    "IoTDevice",
+    "VitalReading",
+    
+    
+    "Notification"
 ]
