@@ -1,3 +1,4 @@
+# C:\Users\hp\Downloads\Kwanpa-Health-Service\app\main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -31,10 +32,6 @@ os.makedirs("uploads", exist_ok=True)
 os.makedirs("uploads/profile_images", exist_ok=True)
 os.makedirs("uploads/profile_photos", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-from fastapi.responses import RedirectResponse, HTMLResponse
-
 
 @app.get("/verify-email/{token}", include_in_schema=False)
 async def redirect_verify_email(token: str):
@@ -48,8 +45,6 @@ async def redirect_reset_password(token: str = None):
         return RedirectResponse(url=f"/auth/reset-password-page?token={token}")
     return RedirectResponse(url="/auth/reset-password-page")
 
-
-
 @app.on_event("startup")
 def startup_event():
     try:
@@ -58,146 +53,82 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Database setup warning: {e}")
 
-
-
-from app.routers.auth import router as auth_router
-from app.routers.users import router as users_router
-from app.routers.health import router as health_router
-from app.routers.notifications import router as notifications_router
-from app.routers.caregivers import router as caregivers_router  
-from app.routers.doctors import router as doctors_router
-from app.routers.admin import router as admin_router
-from app.routers.food_analysis import router as food_analysis_router
-
-app.include_router(auth_router)
-app.include_router(users_router)  
-app.include_router(health_router)
-app.include_router(notifications_router)
-app.include_router(caregivers_router)  
-app.include_router(doctors_router)
-app.include_router(admin_router)
-app.include_router(food_analysis_router)
-
-
-logger.info("Loading superadmin router...")
+# IMPORT ALL ROUTERS ONCE HERE - FIXED VERSION
 try:
-    from app.routers.superadmin import router as superadmin_router
-    app.include_router(superadmin_router)
-    logger.info("Superadmin router loaded successfully")
-    
-    
-    
-    
-    
-    
-    
-            
+    from app.routers.auth import router as auth_router
+    app.include_router(auth_router)
 except ImportError as e:
-    logger.error(f"Failed to import superadmin router: {e}")
-    
-    import traceback
-    traceback.print_exc()
-except Exception as e:
-    logger.error(f"Error loading superadmin router: {e}")
-    import traceback
-    traceback.print_exc()
+    logger.error(f"Failed to import auth router: {e}")
 
+try:
+    from app.routers.users import router as users_router
+    app.include_router(users_router)
+except ImportError as e:
+    logger.error(f"Failed to import users router: {e}")
+
+try:
+    from app.routers.health import router as health_router
+    app.include_router(health_router)
+except ImportError as e:
+    logger.error(f"Failed to import health router: {e}")
+
+try:
+    from app.routers.notifications import router as notifications_router
+    app.include_router(notifications_router)
+except ImportError as e:
+    logger.error(f"Failed to import notifications router: {e}")
 
 try:
     from app.routers.caregivers import router as caregivers_router
     app.include_router(caregivers_router)
-    
-    
-    
-    
-    
-    
-            
-except Exception as e:
-    logger.error(f"❌ Failed to load caregivers router: {e}")
-    import traceback
-    traceback.print_exc()
-
-
-
-
-
-
-
+    logger.info("✅ Caregivers router loaded")
+except ImportError as e:
+    logger.error(f"❌ Failed to import caregivers router: {e}")
 
 try:
-    from app.routers.leaderboard import router as leaderboard_router
-    app.include_router(leaderboard_router)
-    
+    from app.routers.doctors import router as doctors_router
+    app.include_router(doctors_router)
 except ImportError as e:
-    logger.warning(f"Leaderboard router not loaded: {e}")
+    logger.error(f"Failed to import doctors router: {e}")
 
 try:
     from app.routers.admin import router as admin_router
     app.include_router(admin_router)
     logger.info("Admin router loaded")
 except ImportError as e:
-    logger.warning(f"Admin router not loaded: {e}")
-
-
-
-
-
-
-
-
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://kwanpa-health-hub-six.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:8001",
-        "http://localhost:8000"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    logger.error(f"Failed to import admin router: {e}")
 
 try:
     from app.routers.food_analysis import router as food_analysis_router
     app.include_router(food_analysis_router)
     logger.info("Food Analysis router loaded")
 except ImportError as e:
-    logger.warning(f"Food Analysis router not loaded: {e}")
+    logger.error(f"Failed to import food analysis router: {e}")
 
+try:
+    from app.routers.superadmin import router as superadmin_router
+    app.include_router(superadmin_router)
+    logger.info("Superadmin router loaded successfully")
+except ImportError as e:
+    logger.error(f"Failed to import superadmin router: {e}")
+
+try:
+    from app.routers.google_auth import router as google_auth_router
+    app.include_router(google_auth_router)
+    logger.info("✅ Google OAuth router loaded successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import Google Auth router: {e}")
+
+try:
+    from app.routers.leaderboard import router as leaderboard_router
+    app.include_router(leaderboard_router)
+except ImportError as e:
+    logger.warning(f"Leaderboard router not loaded: {e}")
+
+# FIX: Remove duplicate CORS middleware and route declarations
 @app.get("/")
 def read_root():
     return {"message": "Hello from Azure!"}
-    
-    
-    routes = []
-    for route in app.routes:
-        if hasattr(route, 'methods'):
-            routes.append({
-                "path": route.path,
-                "methods": list(route.methods)
-            })
-    
-    return {
-        "message": "Welcome to HEWAL3 Health API",
-        "version": "3.0.0",
-        "environment": settings.ENVIRONMENT,
-        "database": db_status,
-        "status": "running",
-        "docs": "/docs",
-        "routes_count": len(routes)
-    }
-
-
-@app.get("/oauth/callback", response_class=HTMLResponse, include_in_schema=False)
-async def oauth_callback_page():
-    """HTML page for OAuth callback handling"""
-    with open("app/templates/oauth_callback.html", "r") as f:
-        return HTMLResponse(content=f.read())
 
 @app.get("/health")
 async def health_check():
@@ -214,18 +145,11 @@ async def health_check():
         "environment": settings.ENVIRONMENT
     }
 
-
-@app.get("/verify-email/{token}", include_in_schema=False)
-async def redirect_verify_email(token: str):
-    """Redirect old verification links"""
-    return RedirectResponse(url=f"/auth/verify-email-page/{token}")
-
-@app.get("/reset-password", include_in_schema=False)
-async def redirect_reset_password(token: str = None):
-    """Redirect old reset password links"""
-    if token:
-        return RedirectResponse(url=f"/auth/reset-password-page?token={token}")
-    return RedirectResponse(url="/auth/reset-password-page")
+@app.get("/oauth/callback", response_class=HTMLResponse, include_in_schema=False)
+async def oauth_callback_page():
+    """HTML page for OAuth callback handling"""
+    with open("app/templates/oauth_callback.html", "r") as f:
+        return HTMLResponse(content=f.read())
 
 @app.get("/welcome", response_class=HTMLResponse)
 async def welcome_page():
@@ -237,18 +161,18 @@ async def welcome_page():
             <style>
                 body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
                 .container { max-width: 800px; margin: 0 auto; }
-                .logo { color: margin-bottom: 20px; }
+                .logo { margin-bottom: 20px; }
                 .button { 
                     display: inline-block; 
                     padding: 12px 24px; 
                     margin: 10px;
-                    background-color: 
+                    background-color: #4CAF50; 
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
                 }
-                .api-button { background-color: 
-                .section { margin: 40px 0; padding: 20px; background: 
+                .api-button { background-color: #2196F3; }
+                .section { margin: 40px 0; padding: 20px; background: #f5f5f5; border-radius: 10px; }
             </style>
         </head>
         <body>
@@ -260,8 +184,8 @@ async def welcome_page():
                 <div class="section">
                     <h2>Get Started</h2>
                     <a href="/docs" class="button api-button">API Documentation</a>
-                    <a href="/docsclass="button">Sign Up</a>
-                    <a href="/docsclass="button">Login</a>
+                    <a href="/docs#/authentication/signup" class="button">Sign Up</a>
+                    <a href="/docs#/authentication/login" class="button">Login</a>
                 </div>
                 
                 <div class="section">

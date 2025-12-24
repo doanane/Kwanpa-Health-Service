@@ -10,14 +10,13 @@ from app.models.caregiver import CaregiverRelationship
 
 router = APIRouter(prefix="/caregivers", tags=["caregivers"])
 
-
+# Pydantic Models
 class CaregiverUpdateRequest(BaseModel):
     phone_number: Optional[str] = None
 
 class AssignPatientRequest(BaseModel):
     patient_id: int
     relationship_type: str = "family"
-
 
 class CaregiverProfileResponse(BaseModel):
     id: int
@@ -37,7 +36,24 @@ class CaregiverPatientResponse(BaseModel):
     status: str
     assigned_since: datetime
 
+# Helper function to check if user is caregiver
+def verify_caregiver(user: User) -> None:
+    """Raise exception if user is not a caregiver"""
+    if not getattr(user, 'is_caregiver', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a caregiver"
+        )
 
+# Helper function to get approved relationships
+def get_approved_relationships(user_id: int, db: Session) -> List[CaregiverRelationship]:
+    """Get approved caregiver relationships for a user"""
+    return db.query(CaregiverRelationship).filter(
+        CaregiverRelationship.caregiver_id == user_id,
+        CaregiverRelationship.status == "approved"
+    ).all()
+
+# Endpoints
 @router.get("/test")
 async def test_endpoint():
     """Test if caregivers router is working"""
@@ -49,17 +65,9 @@ async def get_caregiver_profile(
     db: Session = Depends(get_db)
 ):
     """Get caregiver profile information"""
-    if not getattr(current_user, 'is_caregiver', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a caregiver"
-        )
+    verify_caregiver(current_user)
     
-    
-    assignments = db.query(CaregiverRelationship).filter(
-        CaregiverRelationship.caregiver_id == current_user.id,
-        CaregiverRelationship.status == "approved"
-    ).all()
+    assignments = get_approved_relationships(current_user.id, db)
     
     return {
         "id": current_user.id,
@@ -77,17 +85,9 @@ async def get_assigned_patients(
     db: Session = Depends(get_db)
 ):
     """Get all patients assigned to this caregiver"""
-    if not getattr(current_user, 'is_caregiver', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a caregiver"
-        )
+    verify_caregiver(current_user)
     
-    
-    relationships = db.query(CaregiverRelationship).filter(
-        CaregiverRelationship.caregiver_id == current_user.id,
-        CaregiverRelationship.status == "approved"
-    ).all()
+    relationships = get_approved_relationships(current_user.id, db)
     
     patients = []
     for rel in relationships:
@@ -112,12 +112,7 @@ async def request_patient_access(
     db: Session = Depends(get_db)
 ):
     """Request access to a patient as caregiver"""
-    if not getattr(current_user, 'is_caregiver', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a caregiver"
-        )
-    
+    verify_caregiver(current_user)
     
     patient = db.query(User).filter(User.id == request.patient_id).first()
     if not patient:
@@ -125,7 +120,6 @@ async def request_patient_access(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Patient not found"
         )
-    
     
     existing = db.query(CaregiverRelationship).filter(
         CaregiverRelationship.caregiver_id == current_user.id,
@@ -137,7 +131,6 @@ async def request_patient_access(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Access request already exists"
         )
-    
     
     relationship = CaregiverRelationship(
         caregiver_id=current_user.id,
@@ -163,20 +156,13 @@ async def update_caregiver_profile(
     db: Session = Depends(get_db)
 ):
     """Update caregiver profile settings"""
-    if not getattr(current_user, 'is_caregiver', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a caregiver"
-        )
+    verify_caregiver(current_user)
     
     if request.phone_number is not None:
         current_user.phone_number = request.phone_number
         db.commit()
     
     return {"message": "Profile updated successfully"}
-
-
-
 
 @router.post("/connect-patient")
 async def connect_with_patient(
@@ -185,13 +171,8 @@ async def connect_with_patient(
     db: Session = Depends(get_db)
 ):
     """Connect with a patient using their ID"""
-    if not current_user.is_caregiver:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only caregivers can connect with patients"
-        )
+    verify_caregiver(current_user)
     
-    # Validate patient_caregiver_id input
     if not patient_caregiver_id or not patient_caregiver_id.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -215,7 +196,6 @@ async def connect_with_patient(
             detail="Cannot connect to yourself"
         )
     
-    
     existing = db.query(CaregiverRelationship).filter(
         CaregiverRelationship.caregiver_id == current_user.id,
         CaregiverRelationship.patient_id == patient.id
@@ -227,12 +207,11 @@ async def connect_with_patient(
             detail=f"Already connected with {patient.email}"
         )
     
-    
     relationship = CaregiverRelationship(
         caregiver_id=current_user.id,
         patient_id=patient.id,
-        relationship_type="professional",  
-        status="pending"  
+        relationship_type="professional",
+        status="pending"
     )
     
     db.add(relationship)
@@ -253,14 +232,9 @@ async def get_my_caregiver_id(
     db: Session = Depends(get_db)
 ):
     """Get caregiver's unique ID"""
-    if not current_user.is_caregiver:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a caregiver"
-        )
+    verify_caregiver(current_user)
     
-    
-    if not current_user.caregiver_id:
+    if not getattr(current_user, 'caregiver_id', None):
         current_user.caregiver_id = current_user.generate_caregiver_id()
         db.commit()
     
@@ -268,34 +242,28 @@ async def get_my_caregiver_id(
         "caregiver_id": current_user.caregiver_id,
         "name": f"{getattr(current_user, 'first_name', '')} {getattr(current_user, 'last_name', '')}".strip(),
         "email": current_user.email,
-        "qr_code_url": f"/caregivers/qr/{current_user.caregiver_id}"  
+        "qr_code_url": f"/caregivers/qr/{current_user.caregiver_id}"
     }
+
 @router.get("/dashboard")
 async def caregiver_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get caregiver dashboard summary"""
-    if not getattr(current_user, 'is_caregiver', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a caregiver"
-        )
+    verify_caregiver(current_user)
     
-    
-    relationships = db.query(CaregiverRelationship).filter(
-        CaregiverRelationship.caregiver_id == current_user.id,
-        CaregiverRelationship.status == "approved"
-    ).all()
-    
+    relationships = get_approved_relationships(current_user.id, db)
     patient_ids = [rel.patient_id for rel in relationships]
+    
+    pending_count = db.query(CaregiverRelationship).filter(
+        CaregiverRelationship.caregiver_id == current_user.id,
+        CaregiverRelationship.status == "pending"
+    ).count()
     
     return {
         "total_patients": len(patient_ids),
-        "pending_requests": db.query(CaregiverRelationship).filter(
-            CaregiverRelationship.caregiver_id == current_user.id,
-            CaregiverRelationship.status == "pending"
-        ).count(),
+        "pending_requests": pending_count,
         "caregiver_status": "active",
         "recent_activity": [
             {
@@ -304,6 +272,6 @@ async def caregiver_dashboard(
                 "status": rel.status,
                 "since": rel.created_at
             }
-            for rel in relationships[:5]  
+            for rel in relationships[:5]
         ]
     }

@@ -231,7 +231,7 @@ async def get_profile_image(
     return {
         "image_url": profile.profile_image_url,
         "user_id": current_user.id,
-        "full_url": f"http://localhost:8000{profile.profile_image_url}"
+        "full_url": f"https://hewal3-backend-api-aya3dzgefte4b3c3.southafricanorth-01.azurewebsites.net{profile.profile_image_url}"
     }
 
 @router.get("/me", response_model=UserInfoResponse)

@@ -27,6 +27,8 @@ class AzureSettings:
         "https://kwanpa-health-hub-six.vercel.app",
         "https://hewal3-api.azurewebsites.net",
         "http://localhost:3000",
+        "http://localhost:8081",
+        "https://hewal3-backend-api-aya3dzgefte4b3c3.southafricanorth-01.azurewebsites.net",
         "http://localhost:8000"
     ]
     
