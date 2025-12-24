@@ -1,7 +1,8 @@
+# app/models/health.py - COMPLETELY FIXED VERSION
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship  # Make sure this import exists
 from app.database import Base
 
 class HealthData(Base):
@@ -19,6 +20,7 @@ class HealthData(Base):
     blood_glucose = Column(Float)
     calories_burned = Column(Integer, default=0)
     
+    # Relationship - make sure it's not conflicting with any Column
     user = relationship("User", back_populates="health_data")
 
 class FoodLog(Base):
@@ -60,3 +62,20 @@ class HealthInsight(Base):
     severity = Column(String)
     generated_at = Column(DateTime(timezone=True), server_default=func.now())
     is_resolved = Column(Boolean, default=False)
+
+# ====== EMERGENCY CONTACT - FIXED ======
+
+class EmergencyContact(Base):
+    __tablename__ = "emergency_contacts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    # CRITICAL FIX: Changed from 'relationship' to 'relationship_type'
+    relationship_type = Column(String, nullable=False)  # FIXED
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # This should now work since 'relationship' is not a Column name
+    user = relationship("User", back_populates="emergency_contacts")
