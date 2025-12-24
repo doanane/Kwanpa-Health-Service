@@ -28,6 +28,9 @@ app.add_middleware(
 )
 
 os.makedirs("uploads", exist_ok=True)
+os.makedirs("uploads/profile_images", exist_ok=True)
+os.makedirs("uploads/profile_photos", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 from fastapi.responses import RedirectResponse, HTMLResponse
@@ -56,12 +59,12 @@ def startup_event():
         logger.warning(f"Database setup warning: {e}")
 
 
-# In app/main.py, ensure you have all these routers:
+
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
 from app.routers.health import router as health_router
 from app.routers.notifications import router as notifications_router
-from app.routers.caregivers import router as caregivers_router  # Make sure this is here
+from app.routers.caregivers import router as caregivers_router  
 from app.routers.doctors import router as doctors_router
 from app.routers.admin import router as admin_router
 from app.routers.food_analysis import router as food_analysis_router
@@ -83,11 +86,11 @@ try:
     logger.info("Superadmin router loaded successfully")
     
     
-    # logger.info("Superadmin endpoints registered:")
-    # for route in superadmin_router.routes:
-    #     if hasattr(route, 'methods'):
-    #         methods = ', '.join(route.methods)
-    #         logger.info(f"  {methods} {route.path}")
+    
+    
+    
+    
+    
             
 except ImportError as e:
     logger.error(f"Failed to import superadmin router: {e}")
@@ -99,33 +102,33 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-# In app/main.py, ensure this section exists:
+
 try:
     from app.routers.caregivers import router as caregivers_router
     app.include_router(caregivers_router)
-    # logger.info("✅ Caregivers router loaded successfully")
     
-    # # Log routes for debugging
-    # for route in caregivers_router.routes:
-    #     if hasattr(route, 'path'):
-    #         logger.info(f"   - {route.path}")
+    
+    
+    
+    
+    
             
 except Exception as e:
     logger.error(f"❌ Failed to load caregivers router: {e}")
     import traceback
     traceback.print_exc()
 
-# try:
-#     from app.routers.doctors import router as doctors_router
-#     app.include_router(doctors_router)
-#     logger.info("Doctors router loaded")
-# except ImportError as e:
-#     logger.warning(f"Doctors router not loaded: {e}")
+
+
+
+
+
+
 
 try:
     from app.routers.leaderboard import router as leaderboard_router
     app.include_router(leaderboard_router)
-    # logger.info("Leaderboard router loaded")
+    
 except ImportError as e:
     logger.warning(f"Leaderboard router not loaded: {e}")
 
@@ -137,12 +140,12 @@ except ImportError as e:
     logger.warning(f"Admin router not loaded: {e}")
 
 
-# try:
-#     from app.routers.google_auth import router as google_auth_router
-#     app.include_router(google_auth_router)
-#     logger.info("✅ Google OAuth router loaded successfully")
-# except ImportError as e:
-#     logger.error(f"❌ Failed to import Google Auth router: {e}")
+
+
+
+
+
+
 
 
 app.add_middleware(

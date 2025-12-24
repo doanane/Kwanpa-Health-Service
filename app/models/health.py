@@ -1,7 +1,8 @@
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship  
 from app.database import Base
 
 class HealthData(Base):
@@ -18,6 +19,7 @@ class HealthData(Base):
     heart_rate = Column(Integer)
     blood_glucose = Column(Float)
     calories_burned = Column(Integer, default=0)
+    
     
     user = relationship("User", back_populates="health_data")
 
@@ -60,3 +62,20 @@ class HealthInsight(Base):
     severity = Column(String)
     generated_at = Column(DateTime(timezone=True), server_default=func.now())
     is_resolved = Column(Boolean, default=False)
+
+
+
+class EmergencyContact(Base):
+    __tablename__ = "emergency_contacts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    
+    relationship_type = Column(String, nullable=False)  
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    
+    user = relationship("User", back_populates="emergency_contacts")
