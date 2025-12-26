@@ -27,15 +27,48 @@ async def get_health_dashboard(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
+    # Get user profile FIRST to get welcome_name
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    welcome_name = profile.full_name if profile else "User"
     
+    # Get health data
+    health_data = db.query(HealthData).filter(
+        HealthData.user_id == current_user.id
+    ).order_by(HealthData.date.desc()).first()
     
+    # Get or create weekly progress
+    today = datetime.now()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    
+    weekly_progress = db.query(WeeklyProgress).filter(
+        WeeklyProgress.user_id == current_user.id,
+        WeeklyProgress.week_start_date >= week_start
+    ).first()
+    
+    if not weekly_progress:
+        weekly_progress = WeeklyProgress(
+            user_id=current_user.id,
+            week_start_date=week_start,
+            week_end_date=week_end,
+            progress_score=0,
+            progress_color="red",
+            steps_goal=10000,
+            sleep_goal=480,
+            water_goal=2000
+        )
+        db.add(weekly_progress)
+        db.commit()
+        db.refresh(weekly_progress)
+    
+    # Get today's food logs
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     today_food_logs = db.query(FoodLog).filter(
         FoodLog.user_id == current_user.id,
         FoodLog.created_at >= today_start
     ).order_by(FoodLog.created_at.desc()).limit(5).all()
     
-    
+    # Process recent meals
     recent_meals = []
     for log in today_food_logs:
         recent_meals.append({
@@ -46,12 +79,12 @@ async def get_health_dashboard(
             "created_at": log.created_at
         })
     
+    # Calculate diet score
     diet_score = None
     if today_food_logs:
         diet_score = sum(log.diet_score or 0 for log in today_food_logs) // len(today_food_logs)
     
     daily_tip = get_daily_tip()
-    
     
     return {
         "welcome_message": f"Welcome, {welcome_name}. I hope you are doing well today. Check in for your weekly progress.",
@@ -61,10 +94,9 @@ async def get_health_dashboard(
         ),
         "diet_score": diet_score,
         "daily_tip": daily_tip,
-        "recent_meals": recent_meals,  
-        "meal_count_today": len(today_food_logs)  
+        "recent_meals": recent_meals,
+        "meal_count_today": len(today_food_logs)
     }
-
     
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     welcome_name = profile.full_name if profile else "User"

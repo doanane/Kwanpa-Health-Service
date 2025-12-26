@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import event
 from app.database import Base
 import random
-
+from app.models.emergency import EmergencyContact, EmergencyEvent  
 class User(Base):
     __tablename__ = "users"
     

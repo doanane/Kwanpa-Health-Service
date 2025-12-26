@@ -11,7 +11,7 @@ from app.auth.security import get_current_user
 from app.models.user import User, UserProfile, UserDevice
 from app.models.health import HealthData 
 import logging
-
+from app.models.emergency import EmergencyContact
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -299,8 +299,8 @@ async def get_emergency_contacts(
         {
             "id": contact.id,
             "name": contact.name,
-            "phone": contact.phone,
-            "relationship": contact.relationship,
+            "phone": contact.phone_number,  # Changed from contact.phone
+            "relationship": contact.relationship_type,  # Changed from contact.relationship
             "is_primary": contact.is_primary
         }
         for contact in contacts
@@ -319,8 +319,8 @@ async def add_emergency_contact(
     contact = EmergencyContact(
         user_id=current_user.id,
         name=name,
-        phone=phone,
-        relationship=relationship,
+        phone_number=phone,  # Changed from phone
+        relationship_type=relationship,  # Changed from relationship
         is_primary=is_primary
     )
     

@@ -1,4 +1,3 @@
-# C:\Users\hp\Downloads\Kwanpa-Health-Service\app\main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -53,7 +52,6 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Database setup warning: {e}")
 
-# IMPORT ALL ROUTERS ONCE HERE - FIXED VERSION
 try:
     from app.routers.auth import router as auth_router
     app.include_router(auth_router)
@@ -125,7 +123,6 @@ try:
 except ImportError as e:
     logger.warning(f"Leaderboard router not loaded: {e}")
 
-# FIX: Remove duplicate CORS middleware and route declarations
 @app.get("/")
 def read_root():
     return {"message": "Hello from Azure!"}
