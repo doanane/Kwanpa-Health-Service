@@ -1,5 +1,6 @@
 import os
 import requests
+import json
 from typing import Dict, Any, List
 import logging
 import re
@@ -19,8 +20,8 @@ class OpenAIService:
     
     def analyze_food_for_chronic_disease(self, food_name: str, user_data: Dict = None) -> Dict[str, Any]:
         """
-        Comprehensive food analysis for chronic disease patients
-        Returns complete analysis with recommendations, nutrients, and warnings
+        Comprehensive food analysis for chronic disease patients.
+        Returns JSON analysis.
         """
         logger.info(f"Analyzing food for chronic disease: {food_name}")
         
@@ -38,60 +39,65 @@ class OpenAIService:
                     chronic_conditions = [conditions]
         
         # Build the complete analysis prompt
-        conditions_text = ", ".join(chronic_conditions) if chronic_conditions else "chronic conditions"
+        conditions_text = ", ".join(chronic_conditions) if chronic_conditions else "general health maintenance"
         age = user_data.get('age', 'adult') if user_data else 'adult'
         
-
-        # In the analyze_food_for_chronic_disease method, update the prompt:
+        # FIXED PROMPT: Explicitly asks for JSON structure
         prompt = f"""
         Analyze this Ghanaian food for a patient with chronic diseases.
 
         FOOD: {food_name}
         PATIENT: {age}-year-old ADULT with {conditions_text}
 
-        Provide a COMPLETE analysis with these sections:
-
-        DESCRIPTION: Briefly describe this traditional Ghanaian dish.
-        NUTRIENT ANALYSIS: Estimate calories, carbs, protein, fat for a standard adult portion.
-        CHRONIC DISEASE IMPACT: How does this food affect diabetes, hypertension, or kidney disease in ADULTS?
-        IMMEDIATE RECOMMENDATION: What should the ADULT patient do right now?
-        PORTION GUIDANCE: How much should an ADULT eat?
-        BALANCING ADVICE: What to add/remove for better nutrition?
-        HEALTHIER ALTERNATIVE: Suggest a better Ghanaian option for ADULTS.
-        WARNING LEVEL: low, medium, or high risk for their conditions.
-        KEY NUTRIENTS TO WATCH: List 2-3 nutrients to monitor.
-
-        CRITICAL INSTRUCTIONS:
-        1. DO NOT use numbers (1., 2., 3., etc.) in your response
-        2. DO NOT mention children, babies, or infants
-        3. Focus on ADULT patients only
-        4. Use plain sentences without numbering
-        5. Each section should be 1-2 complete sentences
+        Return a JSON OBJECT with the following keys. Do not use Markdown formatting.
+        
+        {{
+            "description": "Briefly describe this traditional Ghanaian dish.",
+            "nutrients": {{
+                "calories": 0,
+                "carbs": 0,
+                "protein": 0,
+                "fat": 0
+            }},
+            "chronic_disease_impact": "Explain impact on diabetes/hypertension/kidney disease for ADULTS. Simple terms.",
+            "immediate_recommendation": "What should the ADULT patient do right now? Simple terms.",
+            "portion_guidance": "How much should an ADULT eat?",
+            "balancing_advice": "What to add/remove for better nutrition?",
+            "healthier_alternative": "Suggest a better Ghanaian option for ADULTS.",
+            "warning_level": "low, medium, or high",
+            "key_nutrients_to_watch": ["nutrient1", "nutrient2"]
+        }}
         """
 
-        # Also update the system message to be more strict:
+        # Update system message to enforce JSON
         messages = [
             {
                 "role": "system", 
-                "content": "You are a Ghanaian clinical nutritionist analyzing traditional foods for ADULT patients with diabetes, hypertension, and kidney disease. Provide clear, practical advice for ADULTS only. Never mention children, babies, or infants. Do not use numbered lists or bullet points in your response."
+                "content": "You are a Ghanaian clinical nutritionist. You MUST output valid JSON only."
             },
             {"role": "user", "content": prompt}
         ]
         
         try:
             # Call OpenAI
-            response_text = self._call_openai(messages, max_tokens=400)
+            response_text = self._call_openai(messages, max_tokens=500)
             logger.info(f"OpenAI raw response: {response_text[:200]}...")
             
-            # Parse the response
-            parsed_data = self._parse_complete_analysis(response_text)
-            
+            # Parse JSON directly (much more reliable than regex)
+            try:
+                parsed_data = json.loads(response_text)
+            except json.JSONDecodeError:
+                # Fallback if AI returns markdown json code block
+                clean_text = response_text.replace("```json", "").replace("```", "").strip()
+                parsed_data = json.loads(clean_text)
+
+            # Ensure nutrient structure exists even if AI missed it
+            if "nutrients" not in parsed_data or not isinstance(parsed_data["nutrients"], dict):
+                parsed_data["nutrients"] = {}
+
             # Add calculated fields
             parsed_data["is_balanced"] = self._is_food_balanced(food_name, chronic_conditions)
             parsed_data["diet_score"] = self._calculate_diet_score(parsed_data.get("nutrients", {}), chronic_conditions)
-            
-            # Clean all text fields
-            parsed_data = self._clean_all_text_fields(parsed_data)
             
             return parsed_data
             
@@ -120,140 +126,49 @@ class OpenAIService:
         ]
         
         try:
-            tip = self._call_openai(messages, max_tokens=100)
-            return self._clean_text(tip)
+            # Note: We do NOT use JSON mode here, just text
+            return self._call_openai(messages, max_tokens=100, json_mode=False)
         except:
             return "Monitor your health regularly and take medications as prescribed."
-    
-    def _parse_complete_analysis(self, text: str) -> Dict[str, Any]:
-        """Parse the complete analysis from OpenAI response"""
-        sections = {
-            "description": "",
-            "nutrients": {},
-            "chronic_disease_impact": "",
-            "immediate_recommendation": "",
-            "portion_guidance": "",
-            "balancing_advice": "",
-            "healthier_alternative": "",
-            "warning_level": "low",
-            "key_nutrients_to_watch": []
-        }
-        
-        # First, clean the entire text to remove numbers
-        text = self._remove_numbered_lists(text)
-        
-        current_section = None
-        lines = text.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            
-            # Remove any remaining numbers at start
-            line = re.sub(r'^\d+\.\s*', '', line)
-            
-            # Detect section headers (case insensitive)
-            if "description:" in line.lower():
-                current_section = "description"
-                line = re.sub(r'description:', '', line, flags=re.IGNORECASE).strip()
-            elif "nutrient analysis:" in line.lower() or "nutrients:" in line.lower():
-                current_section = "nutrients"
-                line = re.sub(r'nutrient analysis:|nutrients:', '', line, flags=re.IGNORECASE).strip()
-            elif "chronic disease impact:" in line.lower():
-                current_section = "chronic_disease_impact"
-                line = re.sub(r'chronic disease impact:', '', line, flags=re.IGNORECASE).strip()
-            elif "immediate recommendation:" in line.lower():
-                current_section = "immediate_recommendation"
-                line = re.sub(r'immediate recommendation:', '', line, flags=re.IGNORECASE).strip()
-            elif "portion guidance:" in line.lower():
-                current_section = "portion_guidance"
-                line = re.sub(r'portion guidance:', '', line, flags=re.IGNORECASE).strip()
-            elif "balancing advice:" in line.lower():
-                current_section = "balancing_advice"
-                line = re.sub(r'balancing advice:', '', line, flags=re.IGNORECASE).strip()
-            elif "healthier alternative:" in line.lower():
-                current_section = "healthier_alternative"
-                line = re.sub(r'healthier alternative:', '', line, flags=re.IGNORECASE).strip()
-            elif "warning level:" in line.lower():
-                current_section = "warning_level"
-                line = re.sub(r'warning level:', '', line, flags=re.IGNORECASE).strip().lower()
-            elif "key nutrients to watch:" in line.lower():
-                current_section = "key_nutrients_to_watch"
-                line = re.sub(r'key nutrients to watch:', '', line, flags=re.IGNORECASE).strip()
-            
-            # Add content to current section
-            if current_section and line:
-                # Skip if line is just a number
-                if re.match(r'^\d+$', line):
-                    continue
-                    
-                if current_section == "nutrients":
-                    nutrients = self._extract_nutrients_from_text(line)
-                    if nutrients:
-                        sections["nutrients"] = nutrients
-                elif current_section == "key_nutrients_to_watch":
-                    nutrients = [n.strip() for n in re.split(',|;|and', line) if n.strip()]
-                    sections["key_nutrients_to_watch"] = nutrients
-                elif current_section == "warning_level":
-                    if "high" in line.lower():
-                        sections["warning_level"] = "high"
-                    elif "medium" in line.lower():
-                        sections["warning_level"] = "medium"
-                    else:
-                        sections["warning_level"] = "low"
-                else:
-                    if sections[current_section]:
-                        sections[current_section] += " " + line
-                    else:
-                        sections[current_section] = line
-        
-        return sections
 
-    def _remove_numbered_lists(self, text: str) -> str:
-        """Remove numbered lists from text"""
-        lines = text.split('\n')
-        cleaned_lines = []
+    def _call_openai(self, messages: List[Dict], max_tokens: int = 500, json_mode: bool = True) -> str:
+        """Call Azure OpenAI API"""
+        if not self.endpoint or not self.api_key:
+            raise Exception("Azure OpenAI credentials not configured")
         
-        for line in lines:
-            # Remove lines that are just numbers
-            if re.match(r'^\d+\.?$', line.strip()):
-                continue
-            
-            # Remove numbers at start of lines
-            line = re.sub(r'^\d+\.\s*', '', line)
-            line = re.sub(r'^\d+\)\s*', '', line)
-            
-            if line.strip():
-                cleaned_lines.append(line)
-        
-        return '\n'.join(cleaned_lines)
-    
-    def _extract_nutrients_from_text(self, text: str) -> Dict[str, Any]:
-        """Extract nutrient values from text"""
-        nutrients = {
-            "calories": 300,
-            "carbs": 45,
-            "protein": 12,
-            "fat": 10,
-            "type": "unknown"
+        url = f"{self.endpoint}/openai/deployments/{self.deployment}/chat/completions"
+        params = {"api-version": self.api_version}
+        headers = {
+            "Content-Type": "application/json",
+            "api-key": self.api_key
         }
         
-        # Look for numbers in the text
-        import re
-        numbers = re.findall(r'\b(\d+)\s*(calories?|kcal|carbs?|carbohydrates?|protein|fat|g\b)', text.lower())
+        payload = {
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.5
+        }
+
+        # Only add response_format if json_mode is requested
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
         
-        for num, unit in numbers:
-            num = int(num)
-            if 'calori' in unit or 'kcal' in unit:
-                nutrients["calories"] = num
-            elif 'carb' in unit:
-                nutrients["carbs"] = num
-            elif 'protein' in unit:
-                nutrients["protein"] = num
-            elif 'fat' in unit:
-                nutrients["fat"] = num
-        
-        return nutrients
-    
+        try:
+            response = requests.post(url, headers=headers, params=params, json=payload)
+            
+            # Detailed logging for errors
+            if response.status_code != 200:
+                logger.error(f"OpenAI Error Body: {response.text}")
+                
+            response.raise_for_status()
+            result = response.json()
+            return result["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.error(f"OpenAI API call failed: {str(e)}")
+            raise
+
+    # --- Helper Logic ---
+
     def _is_food_balanced(self, food_name: str, conditions: List[str]) -> bool:
         """Check if food is balanced for conditions"""
         food_lower = food_name.lower()
@@ -274,20 +189,20 @@ class OpenAIService:
         """Calculate diet score 0-100"""
         base_score = 70
         
-        # Score based on nutrients
-        calories = nutrients.get("calories", 300)
+        # Score based on nutrients (handling 0 or missing values)
+        calories = nutrients.get("calories", 300) or 300
         if 250 <= calories <= 400:
             base_score += 10
         elif calories > 500:
             base_score -= 15
         
-        carbs = nutrients.get("carbs", 45)
+        carbs = nutrients.get("carbs", 45) or 45
         if carbs < 60:
             base_score += 10
         elif carbs > 80:
             base_score -= 15
         
-        protein = nutrients.get("protein", 12)
+        protein = nutrients.get("protein", 12) or 12
         if protein >= 15:
             base_score += 10
         
@@ -352,191 +267,3 @@ class OpenAIService:
             "is_balanced": self._is_food_balanced(food_name, conditions),
             "diet_score": self._calculate_diet_score(nutrients, conditions)
         }
-    
-    def _clean_all_text_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean all text fields in the response"""
-        cleaned = {}
-        for key, value in data.items():
-            if isinstance(value, str):
-                cleaned[key] = self._clean_text(value)
-            elif isinstance(value, list):
-                cleaned[key] = [self._clean_text(str(item)) if isinstance(item, str) else item for item in value]
-            elif isinstance(value, dict):
-                cleaned[key] = self._clean_all_text_fields(value)
-            else:
-                cleaned[key] = value
-        return cleaned
-    
-    def _clean_text(self, text: str) -> str:
-        """Remove all formatting, numbers, and clean text"""
-        if not text:
-            return text
-        
-        # Remove all markdown and special characters
-        text = re.sub(r'[\*\#\`\[\]\(\)]', '', text)
-        
-        # Remove numbered lists (1., 2., 3., etc.)
-        text = re.sub(r'^\d+\.\s*', '', text, flags=re.MULTILINE)
-        
-        # Remove any remaining numbers at start of sentences
-        text = re.sub(r'^(\d+)\s+', '', text, flags=re.MULTILINE)
-        
-        # Split into lines and clean each
-        lines = text.split('\n')
-        cleaned_lines = []
-        
-        for line in lines:
-            line = line.strip()
-            
-            # Remove common list markers
-            if line.startswith('- '):
-                line = line[2:]
-            elif line.startswith('• '):
-                line = line[2:]
-            elif line.startswith('* '):
-                line = line[2:]
-            
-            # Remove any numbers followed by punctuation at start
-            line = re.sub(r'^\d+[\.\)]\s*', '', line)
-            
-            if line:
-                # Ensure proper sentence ending
-                if not line.endswith(('.', '!', '?', ':')):
-                    line = line + '.'
-                cleaned_lines.append(line)
-        
-        # Join with spaces
-        cleaned_text = ' '.join(cleaned_lines)
-        
-        # Remove extra whitespace
-        cleaned_text = ' '.join(cleaned_text.split())
-        
-        return cleaned_text.strip()
-    
-    def _call_openai(self, messages: List[Dict], max_tokens: int = 300) -> str:
-        """Call Azure OpenAI API"""
-        if not self.endpoint or not self.api_key:
-            raise Exception("Azure OpenAI credentials not configured")
-        
-        url = f"{self.endpoint}/openai/deployments/{self.deployment}/chat/completions"
-        params = {"api-version": self.api_version}
-        headers = {
-            "Content-Type": "application/json",
-            "api-key": self.api_key
-        }
-        payload = {
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": 0.7
-        }
-        
-        try:
-            response = requests.post(url, headers=headers, params=params, json=payload)
-            response.raise_for_status()
-            result = response.json()
-            return result["choices"][0]["message"]["content"].strip()
-        except Exception as e:
-            logger.error(f"OpenAI API call failed: {str(e)}")
-            raise
-
-    def _parse_complete_analysis(self, text: str) -> Dict[str, Any]:
-        """Parse the complete analysis from OpenAI response"""
-        sections = {
-            "description": "",
-            "nutrients": {},
-            "chronic_disease_impact": "",
-            "immediate_recommendation": "",
-            "portion_guidance": "",
-            "balancing_advice": "",
-            "healthier_alternative": "",
-            "warning_level": "low",
-            "key_nutrients_to_watch": []
-        }
-        
-        # First, clean the entire text to remove numbers
-        text = self._remove_numbered_lists(text)
-        
-        current_section = None
-        lines = text.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            
-            # Remove any remaining numbers at start
-            line = re.sub(r'^\d+\.\s*', '', line)
-            
-            # Detect section headers (case insensitive)
-            if "description:" in line.lower():
-                current_section = "description"
-                line = re.sub(r'description:', '', line, flags=re.IGNORECASE).strip()
-            elif "nutrient analysis:" in line.lower() or "nutrients:" in line.lower():
-                current_section = "nutrients"
-                line = re.sub(r'nutrient analysis:|nutrients:', '', line, flags=re.IGNORECASE).strip()
-            elif "chronic disease impact:" in line.lower():
-                current_section = "chronic_disease_impact"
-                line = re.sub(r'chronic disease impact:', '', line, flags=re.IGNORECASE).strip()
-            elif "immediate recommendation:" in line.lower():
-                current_section = "immediate_recommendation"
-                line = re.sub(r'immediate recommendation:', '', line, flags=re.IGNORECASE).strip()
-            elif "portion guidance:" in line.lower():
-                current_section = "portion_guidance"
-                line = re.sub(r'portion guidance:', '', line, flags=re.IGNORECASE).strip()
-            elif "balancing advice:" in line.lower():
-                current_section = "balancing_advice"
-                line = re.sub(r'balancing advice:', '', line, flags=re.IGNORECASE).strip()
-            elif "healthier alternative:" in line.lower():
-                current_section = "healthier_alternative"
-                line = re.sub(r'healthier alternative:', '', line, flags=re.IGNORECASE).strip()
-            elif "warning level:" in line.lower():
-                current_section = "warning_level"
-                line = re.sub(r'warning level:', '', line, flags=re.IGNORECASE).strip().lower()
-            elif "key nutrients to watch:" in line.lower():
-                current_section = "key_nutrients_to_watch"
-                line = re.sub(r'key nutrients to watch:', '', line, flags=re.IGNORECASE).strip()
-            
-            # Add content to current section
-            if current_section and line:
-                # Skip if line is just a number
-                if re.match(r'^\d+$', line):
-                    continue
-                    
-                if current_section == "nutrients":
-                    nutrients = self._extract_nutrients_from_text(line)
-                    if nutrients:
-                        sections["nutrients"] = nutrients
-                elif current_section == "key_nutrients_to_watch":
-                    nutrients = [n.strip() for n in re.split(',|;|and', line) if n.strip()]
-                    sections["key_nutrients_to_watch"] = nutrients
-                elif current_section == "warning_level":
-                    if "high" in line.lower():
-                        sections["warning_level"] = "high"
-                    elif "medium" in line.lower():
-                        sections["warning_level"] = "medium"
-                    else:
-                        sections["warning_level"] = "low"
-                else:
-                    if sections[current_section]:
-                        sections[current_section] += " " + line
-                    else:
-                        sections[current_section] = line
-        
-        return sections
-
-    def _remove_numbered_lists(self, text: str) -> str:
-        """Remove numbered lists from text"""
-        lines = text.split('\n')
-        cleaned_lines = []
-        
-        for line in lines:
-            # Remove lines that are just numbers
-            if re.match(r'^\d+\.?$', line.strip()):
-                continue
-            
-            # Remove numbers at start of lines
-            line = re.sub(r'^\d+\.\s*', '', line)
-            line = re.sub(r'^\d+\)\s*', '', line)
-            
-            if line.strip():
-                cleaned_lines.append(line)
-        
-        return '\n'.join(cleaned_lines)

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.auth.security import get_current_user
 from app.models.user import User, UserProfile, UserDevice
+from app.services.storage_service import storage_service
 from app.models.health import HealthData 
 import logging
 from app.models.emergency import EmergencyContact
@@ -162,6 +163,7 @@ async def upload_profile_image(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+
     """Upload profile image"""
     allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -191,27 +193,25 @@ async def upload_profile_image(
     file_path = os.path.join(upload_dir, filename)
     
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Use the service instead of manual file saving
+        image_url = await storage_service.upload_file(file, folder="profile_images")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save file: {str(e)}"
-        )
-    
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
         profile = UserProfile(user_id=current_user.id)
         db.add(profile)
+     
     
-    profile.profile_image_url = f"/uploads/profile_images/{filename}"
+    profile.profile_image_url = image_url
     db.commit()
     
     return {
         "message": "Profile image uploaded successfully",
-        "image_url": profile.profile_image_url,
+        "image_url": image_url,
         "user_id": current_user.id,
-        "filename": filename
+        "filename": file.filename
     }
 
 @router.get("/profile-image")
