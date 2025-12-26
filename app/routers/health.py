@@ -97,63 +97,6 @@ async def get_health_dashboard(
         "recent_meals": recent_meals,
         "meal_count_today": len(today_food_logs)
     }
-    
-    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
-    welcome_name = profile.full_name if profile else "User"
-    
-    
-    health_data = db.query(HealthData).filter(
-        HealthData.user_id == current_user.id
-    ).order_by(HealthData.date.desc()).first()
-    
-    
-    today = datetime.now()
-    week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=6)
-    
-    weekly_progress = db.query(WeeklyProgress).filter(
-        WeeklyProgress.user_id == current_user.id,
-        WeeklyProgress.week_start_date >= week_start
-    ).first()
-    
-    if not weekly_progress:
-        
-        weekly_progress = WeeklyProgress(
-            user_id=current_user.id,
-            week_start_date=week_start,
-            week_end_date=week_end,
-            progress_score=0,
-            progress_color="red",
-            steps_goal=10000,
-            sleep_goal=480,
-            water_goal=2000
-        )
-        db.add(weekly_progress)
-        db.commit()
-        db.refresh(weekly_progress)
-    
-    
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_food_logs = db.query(FoodLog).filter(
-        FoodLog.user_id == current_user.id,
-        FoodLog.created_at >= today_start
-    ).all()
-    
-    diet_score = None
-    if today_food_logs:
-        diet_score = sum(log.diet_score or 0 for log in today_food_logs) // len(today_food_logs)
-    
-    daily_tip = get_daily_tip()
-    
-    return HealthDashboardResponse(
-        welcome_message=f"Welcome, {welcome_name}. I hope you are doing well today. Check in for your weekly progress.",
-        weekly_progress=weekly_progress,
-        health_snapshot=health_data or HealthDataResponse(
-            id=0, user_id=current_user.id, date=datetime.now()
-        ),
-        diet_score=diet_score,
-        daily_tip=daily_tip
-    )
 
 @router.post("/food-log", response_model=FoodLogResponse)
 async def log_food(

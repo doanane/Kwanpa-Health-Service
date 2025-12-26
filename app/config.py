@@ -25,7 +25,11 @@ class Settings(BaseModel):
     
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
-    CORS_ORIGINS: List[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8081,http://localhost:5173").split(",")
+    CORS_ORIGINS: List[str] = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:8081,http://localhost:5173,"
+        "http://127.0.0.1:3000,http://127.0.0.1:8081,http://127.0.0.1:5173"
+    ).split(",")
     
     # Email Service
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
@@ -44,7 +48,11 @@ class Settings(BaseModel):
     GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "https://hewal3-backend-api-aya3dzgefte4b3c3.southafricanorth-01.azurewebsites.net/auth/google/callback")
     
     # Allowed Origins
-    ALLOWED_ORIGINS: List[str] = eval(os.getenv("ALLOWED_ORIGINS", '["http://localhost:3000", "http://localhost:8081", "http://localhost:5173"]'))
+    ALLOWED_ORIGINS: List[str] = eval(os.getenv(
+        "ALLOWED_ORIGINS",
+        '["http://localhost:3000", "http://localhost:8081", "http://localhost:5173",'
+        ' "http://127.0.0.1:3000", "http://127.0.0.1:8081", "http://127.0.0.1:5173"]'
+    ))
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))

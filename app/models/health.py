@@ -1,6 +1,5 @@
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Text, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship  
 from app.database import Base
@@ -30,9 +29,9 @@ class FoodLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     meal_type = Column(String)
     food_image_url = Column(String, nullable=True)
-    ai_analysis = Column(JSONB)
+    ai_analysis = Column(JSON)
     diet_score = Column(Integer)
-    nutrients = Column(JSONB)
+    nutrients = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     user = relationship("User", back_populates="food_logs")
