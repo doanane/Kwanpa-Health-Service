@@ -1,41 +1,46 @@
 name: Deploy to Azure
 
+# Ensure only one deploy runs at a time; queue new runs instead of canceling
+concurrency:
+  group: hewal3-backend-api-deploy
+  cancel-in-progress: false
+
 on:
   push:
     branches: [main]
-    paths-ignore:  
-      - '*.zip'
-      - 'deploy.zip'
+    paths-ignore:
+      - "*.zip"
+      - "deploy.zip"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'deploy.zip')"  # Skip if commit is about deploy.zip
+    if: "!contains(github.event.head_commit.message, 'deploy.zip')" # Skip if commit is about deploy.zip
 
     steps:
       - uses: actions/checkout@v4
-        
+
       - name: Clean up any leftover .zip files
         run: |
           echo "Cleaning up any .zip files..."
           find . -name "*.zip" -type f -delete
           find . -name "deploy.zip" -type f -delete
-          
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-          
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          
+
       - name: Deploy to Azure
         uses: azure/webapps-deploy@v3
         with:
