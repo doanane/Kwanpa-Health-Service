@@ -18,14 +18,28 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# CORS Configuration - FIXED
+allowed_origins = [
+    "http://localhost:8081",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "https://kwanpa-health-hub-six.vercel.app",
+]
+
+if settings.ENVIRONMENT == "development":
+    allowed_origins.extend([
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+    ])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=".*" if settings.ENVIRONMENT == "development" else None,
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 os.makedirs("uploads", exist_ok=True)
@@ -53,6 +67,7 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Database setup warning: {e}")
 
+# Include all routers
 try:
     from app.routers.auth import router as auth_router
     app.include_router(auth_router)
@@ -126,7 +141,7 @@ except ImportError as e:
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello from Azure!"}
+    return {"message": "Hello from HEWAL3 API!"}
 
 @app.get("/health")
 async def health_check():
@@ -142,6 +157,11 @@ async def health_check():
         "database": db_status,
         "environment": settings.ENVIRONMENT
     }
+
+@app.options("/{full_path:path}", include_in_schema=False)
+async def options_handler(full_path: str):
+    """Handle preflight requests"""
+    return {"status": "ok"}
 
 @app.get("/oauth/callback", response_class=HTMLResponse, include_in_schema=False)
 async def oauth_callback_page():
