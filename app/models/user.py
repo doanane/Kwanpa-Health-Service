@@ -1,6 +1,5 @@
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy import event
@@ -86,15 +85,15 @@ class UserProfile(Base):
     doctor_id = Column(String, ForeignKey("doctors.doctor_id", ondelete="SET NULL"), nullable=True)
     gender = Column(String)
     age = Column(Integer)
-    chronic_conditions = Column(JSONB, default=list)
-    family_history = Column(JSONB, default=list)
+    chronic_conditions = Column(JSON, default=list)
+    family_history = Column(JSON, default=list)
     weight = Column(Integer)
     height = Column(Integer)
     bmi = Column(Integer, nullable=True)
     blood_pressure = Column(String)
     heart_rate = Column(Integer)
     blood_glucose = Column(Integer)
-    daily_habits = Column(JSONB, default=list)
+    daily_habits = Column(JSON, default=list)
     profile_completed = Column(Boolean, default=False)
     emergency_contact_name = Column(String, nullable=True)
     emergency_contact_phone = Column(String, nullable=True)

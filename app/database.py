@@ -67,11 +67,16 @@ def get_db():
 def create_tables(preserve_data: bool = True):
     """Create database tables with option to preserve data"""
     try:
-        if not preserve_data and settings.ENVIRONMENT == "development":
-            logger.warning("⚠️ Dropping tables (data will be lost!)")
+        # SQLite fallback often has schema drift; recreate tables to match models
+        if engine.dialect.name == "sqlite":
+            logger.warning("⚠️ SQLite detected – recreating tables to keep schema in sync")
             Base.metadata.drop_all(bind=engine)
-        
-        Base.metadata.create_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
+        else:
+            if not preserve_data and settings.ENVIRONMENT == "development":
+                logger.warning("⚠️ Dropping tables (data will be lost!)")
+                Base.metadata.drop_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
         
         # if preserve_data:
         #     logger.info("✅ Database tables verified - existing data preserved")
