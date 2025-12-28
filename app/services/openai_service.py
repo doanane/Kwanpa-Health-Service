@@ -14,7 +14,7 @@ class OpenAIService:
         self.deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-chat")
         self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
         
-        # Validate credentials
+        
         if not self.endpoint or not self.api_key:
             logger.warning("Azure OpenAI credentials not found in environment variables")
     
@@ -25,7 +25,7 @@ class OpenAIService:
         """
         logger.info(f"Analyzing food for chronic disease: {food_name}")
         
-        # Get chronic conditions
+        
         chronic_conditions = []
         if user_data and user_data.get('chronic_conditions'):
             conditions = user_data['chronic_conditions']
@@ -38,11 +38,11 @@ class OpenAIService:
                 except:
                     chronic_conditions = [conditions]
         
-        # Build the complete analysis prompt
+        
         conditions_text = ", ".join(chronic_conditions) if chronic_conditions else "general health maintenance"
         age = user_data.get('age', 'adult') if user_data else 'adult'
         
-        # FIXED PROMPT: Explicitly asks for JSON structure
+        
         prompt = f"""
         Analyze this Ghanaian food for a patient with chronic diseases.
 
@@ -69,7 +69,7 @@ class OpenAIService:
         }}
         """
 
-        # Update system message to enforce JSON
+        
         messages = [
             {
                 "role": "system", 
@@ -79,23 +79,23 @@ class OpenAIService:
         ]
         
         try:
-            # Call OpenAI
+            
             response_text = self._call_openai(messages, max_tokens=500)
             logger.info(f"OpenAI raw response: {response_text[:200]}...")
             
-            # Parse JSON directly (much more reliable than regex)
+            
             try:
                 parsed_data = json.loads(response_text)
             except json.JSONDecodeError:
-                # Fallback if AI returns markdown json code block
+                
                 clean_text = response_text.replace("```json", "").replace("```", "").strip()
                 parsed_data = json.loads(clean_text)
 
-            # Ensure nutrient structure exists even if AI missed it
+            
             if "nutrients" not in parsed_data or not isinstance(parsed_data["nutrients"], dict):
                 parsed_data["nutrients"] = {}
 
-            # Add calculated fields
+            
             parsed_data["is_balanced"] = self._is_food_balanced(food_name, chronic_conditions)
             parsed_data["diet_score"] = self._calculate_diet_score(parsed_data.get("nutrients", {}), chronic_conditions)
             
@@ -126,7 +126,7 @@ class OpenAIService:
         ]
         
         try:
-            # Note: We do NOT use JSON mode here, just text
+            
             return self._call_openai(messages, max_tokens=100, json_mode=False)
         except:
             return "Monitor your health regularly and take medications as prescribed."
@@ -149,14 +149,14 @@ class OpenAIService:
             "temperature": 0.5
         }
 
-        # Only add response_format if json_mode is requested
+        
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
         
         try:
             response = requests.post(url, headers=headers, params=params, json=payload)
             
-            # Detailed logging for errors
+            
             if response.status_code != 200:
                 logger.error(f"OpenAI Error Body: {response.text}")
                 
@@ -167,18 +167,18 @@ class OpenAIService:
             logger.error(f"OpenAI API call failed: {str(e)}")
             raise
 
-    # --- Helper Logic ---
+    
 
     def _is_food_balanced(self, food_name: str, conditions: List[str]) -> bool:
         """Check if food is balanced for conditions"""
         food_lower = food_name.lower()
         
-        # High-carb foods are less balanced for diabetics
+        
         if any('diabet' in str(c).lower() for c in conditions):
             if any(starch in food_lower for starch in ['rice', 'omotuo', 'banku', 'fufu', 'yam']):
                 return False
         
-        # High-sodium foods are less balanced for hypertension
+        
         if any('hypertens' in str(c).lower() or 'blood pressure' in str(c).lower() for c in conditions):
             if 'soup' in food_lower or 'stew' in food_lower:
                 return False
@@ -189,7 +189,7 @@ class OpenAIService:
         """Calculate diet score 0-100"""
         base_score = 70
         
-        # Score based on nutrients (handling 0 or missing values)
+        
         calories = nutrients.get("calories", 300) or 300
         if 250 <= calories <= 400:
             base_score += 10
@@ -206,12 +206,12 @@ class OpenAIService:
         if protein >= 15:
             base_score += 10
         
-        # Adjust for conditions
+        
         if any('diabet' in str(c).lower() for c in conditions) and carbs > 50:
             base_score -= 20
         
         if any('hypertens' in str(c).lower() for c in conditions):
-            base_score += 5  # Encourage monitoring
+            base_score += 5  
         
         return max(0, min(100, base_score))
     
@@ -219,7 +219,7 @@ class OpenAIService:
         """Fallback analysis when OpenAI fails"""
         food_lower = food_name.lower()
         
-        # Default nutrients
+        
         nutrients = {
             "calories": 300,
             "carbs": 45,
@@ -228,7 +228,7 @@ class OpenAIService:
             "type": "unknown"
         }
         
-        # Adjust based on known foods
+        
         if 'omotuo' in food_lower or 'rice' in food_lower:
             nutrients = {"calories": 280, "carbs": 55, "protein": 8, "fat": 6, "type": "high_starch"}
             description = "Omotuo are soft rice balls, a traditional Ghanaian dish often served with soup."
@@ -243,7 +243,7 @@ class OpenAIService:
             balance = "Include vegetables and protein sources."
             alternative = "Consider healthier preparation methods."
         
-        # Determine warning level
+        
         warning = "low"
         key_nutrients = ["calories", "protein"]
         

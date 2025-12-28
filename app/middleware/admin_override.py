@@ -19,33 +19,33 @@ class AdminOverrideMiddleware:
         self.security = HTTPBearer(auto_error=False)
     
     async def __call__(self, request: Request, call_next):
-        # Skip for public endpoints
+        
         public_paths = ['/docs', '/redoc', '/openapi.json', '/health', '/', '/welcome']
         if any(request.url.path.startswith(path) for path in public_paths):
             return await call_next(request)
         
-        # Check for Authorization header
+        
         auth_header = request.headers.get("Authorization")
         
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.replace("Bearer ", "")
             
             try:
-                # Decode token
+                
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
                 user_type = payload.get("user_type")
                 subject = payload.get("sub")
                 
-                # If token is admin token, add admin context to request
+                
                 if user_type == "admin":
-                    # Get database session
+                    
                     db_gen = get_db()
                     db = await anext(db_gen) if hasattr(db_gen, '__anext__') else next(db_gen)
                     
                     try:
                         admin = db.query(Admin).filter(Admin.email == subject).first()
                         if admin and admin.is_active:
-                            # Add admin info to request state
+                            
                             request.state.is_admin = True
                             request.state.admin_id = admin.id
                             request.state.admin_email = admin.email
@@ -57,7 +57,7 @@ class AdminOverrideMiddleware:
                             db.close()
                 
             except JWTError:
-                pass  # Token is invalid, let normal auth handle it
+                pass  
         
         response = await call_next(request)
         return response

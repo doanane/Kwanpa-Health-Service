@@ -1,6 +1,6 @@
 # clean_secrets.ps1 - Remove all secrets from Git history
 
-Write-Host "🚨 CRITICAL SECURITY ALERT!" -ForegroundColor Red
+Write-Host "CRITICAL SECURITY ALERT!" -ForegroundColor Red
 Write-Host "You have exposed multiple API keys in your repository." -ForegroundColor Yellow
 Write-Host "`nStep 1: BACKUP YOUR .env FILE" -ForegroundColor Cyan
 Copy-Item .env .env.backup -Force
@@ -26,7 +26,7 @@ SECRET_KEY=generate_a_random_secret_key_here
 # Add other variables WITHOUT real values
 "@ | Out-File -FilePath example.env -Encoding UTF8
 
-Write-Host "✅ Created example.env template" -ForegroundColor Green
+Write-Host "Created example.env template" -ForegroundColor Green
 
 Write-Host "`nStep 3: Removing .env from Git..." -ForegroundColor Cyan
 git rm --cached .env
@@ -48,7 +48,7 @@ git commit -m "security: Remove all secrets from repository
 - Fix environment variable loading in ai_food_analysis.py
 - All API keys must now be set as environment variables"
 
-Write-Host "`n🚨 IMPORTANT NEXT STEPS:" -ForegroundColor Red
+Write-Host "`nIMPORTANT NEXT STEPS:" -ForegroundColor Red
 Write-Host "1. ROTATE ALL EXPOSED KEYS IMMEDIATELY:" -ForegroundColor Yellow
 Write-Host "   - Azure Custom Vision" -ForegroundColor White
 Write-Host "   - Azure OpenAI" -ForegroundColor White

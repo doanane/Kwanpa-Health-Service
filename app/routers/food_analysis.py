@@ -160,7 +160,7 @@ async def analyze_meal(
         db.refresh(food_log)
         response["analysis_id"] = food_log.id
         
-        logger.info(f"✅ Analysis completed for user {current_user.id}: {detected_food}")
+        logger.info(f"Analysis completed for user {current_user.id}: {detected_food}")
         return response
         
     except HTTPException:

@@ -33,7 +33,7 @@ class EmailService:
         logger.info(f"DEBUG: API Key configured: {hasattr(settings, 'SENDGRID_API_KEY')}")
         
         if not self.sendgrid_client:
-            logger.error("❌ SendGrid client not initialized. Check SENDGRID_API_KEY in .env")
+            logger.error("SendGrid client not initialized. Check SENDGRID_API_KEY in .env")
             logger.info(f"📧 Email WOULD be sent to {to_email}: {subject}")
             logger.info(f"HTML preview: {html_content[:200]}...")
             return False  
@@ -57,14 +57,14 @@ class EmailService:
             response = self.sendgrid_client.send(message)
             
             if response.status_code in [200, 201, 202]:
-                logger.info(f"✅ Email ACTUALLY sent to {to_email}")
+                logger.info(f"Email ACTUALLY sent to {to_email}")
                 return True
             else:
-                logger.error(f"❌ Failed to send email: {response.status_code} - {response.body}")
+                logger.error(f"Failed to send email: {response.status_code} - {response.body}")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Error sending email: {e}")
+            logger.error(f"Error sending email: {e}")
             return False    
 
     def send_welcome_email(self, user_email: str, user_name: str, verification_token: str):
@@ -270,10 +270,10 @@ class EmailService:
         
         try:
             result = self.send_email(to_email, subject, html_content)
-            logger.info(f"✅ Caregiver welcome email sent to {to_email}")
+            logger.info(f"Caregiver welcome email sent to {to_email}")
             return result
         except Exception as e:
-            logger.error(f"❌ Failed to send caregiver welcome email: {e}")
+            logger.error(f"Failed to send caregiver welcome email: {e}")
             return False
 
 

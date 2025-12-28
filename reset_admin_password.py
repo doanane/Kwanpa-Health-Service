@@ -22,12 +22,12 @@ def add_email_column():
             try:
                 conn.execute(text("ALTER TABLE doctors ADD COLUMN email VARCHAR"))
                 conn.commit()
-                print("✅ Email column added successfully")
+                print("Email column added successfully")
             except Exception as e:
-                print(f"❌ Error adding column: {e}")
+                print(f"Error adding column: {e}")
                 conn.rollback()
         else:
-            print("✅ Email column already exists")
+            print("Email column already exists")
         
         
         print("\nDoctors table structure:")

@@ -1,4 +1,4 @@
-# app/routers/notifications.py - Fixed version
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Union
@@ -17,8 +17,8 @@ async def get_notifications(
     db: Session = Depends(get_db),
     current: Union[User, Admin] = Depends(get_current_active_user_or_admin)
 ):
-    # If current is Admin, they might not have notifications
-    # For now, return empty
+    
+    
     if isinstance(current, Admin):
         return NotificationGroupResponse(
             system=[],
@@ -26,12 +26,12 @@ async def get_notifications(
             doctor=[]
         )
     
-    # Original logic for users
+    
     notifications = db.query(Notification).filter(
         Notification.user_id == current.id
     ).order_by(Notification.created_at.desc()).all()
     
-    # Group by type
+    
     system = [n for n in notifications if n.notification_type == "system"]
     caregiver = [n for n in notifications if n.notification_type == "caregiver"]
     doctor = [n for n in notifications if n.notification_type == "doctor"]

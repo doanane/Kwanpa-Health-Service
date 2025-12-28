@@ -20,9 +20,9 @@ class StorageService:
                     settings.AZURE_STORAGE_CONNECTION_STRING
                 )
                 self.use_azure = True
-                logger.info("✅ Azure Blob Storage initialized")
+                logger.info("Azure Blob Storage initialized")
             except Exception as e:
-                logger.warning(f"⚠️ Failed to init Azure Storage: {e}. Using local storage.")
+                logger.warning(f"Failed to init Azure Storage: {e}. Using local storage.")
 
     async def upload_file(self, file: UploadFile, folder: str = "general") -> str:
         """

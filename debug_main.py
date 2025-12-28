@@ -1,4 +1,3 @@
-# Create: C:\Users\hp\Downloads\Kwanpa-Health-Service\debug_main.py
 import sys
 import os
 import logging
@@ -16,7 +15,7 @@ print("="*60)
 print("\n1. Testing caregivers router import...")
 try:
     from app.routers.caregivers import router
-    print("   ✅ SUCCESS: Router imported")
+    print("   SUCCESS: Router imported")
     print(f"   Prefix: {router.prefix}")
     print(f"   Tags: {router.tags}")
     print(f"   Routes count: {len(router.routes)}")
@@ -27,7 +26,7 @@ try:
         print(f"   {i+1}. {path} - {methods}")
         
 except Exception as e:
-    print(f"   ❌ FAILED: {type(e).__name__}: {e}")
+    print(f"   FAILED: {type(e).__name__}: {e}")
     import traceback
     traceback.print_exc()
 
@@ -40,9 +39,9 @@ result = subprocess.run(
     text=True
 )
 if result.returncode == 0:
-    print("   ✅ No syntax errors")
+    print("   No syntax errors")
 else:
-    print(f"   ❌ Syntax error found!")
+    print(f"   Syntax error found!")
     print(result.stderr)
 
 # Test 3: Check what routers are actually loaded
@@ -72,9 +71,9 @@ except Exception as e:
 print("   Router loading results:")
 for router_name, *status in routers_loaded:
     if status[0]:
-        print(f"   ✅ {router_name}: Loaded successfully")
+        print(f"   {router_name}: Loaded successfully")
     else:
-        print(f"   ❌ {router_name}: Failed - {status[1] if len(status) > 1 else 'Unknown'}")
+        print(f"   {router_name}: Failed - {status[1] if len(status) > 1 else 'Unknown'}")
 
 # Test 4: Count routes in test app
 print(f"\n4. Routes in test app: {len(test_app.routes)}")

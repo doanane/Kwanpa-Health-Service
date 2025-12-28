@@ -15,7 +15,7 @@ def reset_database():
     print("RESETTING DATABASE...")
     print("=" * 60)
     
-    confirm = input("⚠️  This will DELETE ALL DATA. Type 'YES' to confirm: ")
+    confirm = input(" This will DELETE ALL DATA. Type 'YES' to confirm: ")
     if confirm != "YES":
         print("Cancelled.")
         return
@@ -29,13 +29,13 @@ def reset_database():
         print("Creating fresh tables...")
         Base.metadata.create_all(bind=engine)
         
-        print("✅ Database reset complete")
+        print("Database reset complete")
         
         
         create_default_data()
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()
 
@@ -97,7 +97,7 @@ def create_default_data():
         db.commit()
         
         print("\n" + "=" * 60)
-        print("✅ DEFAULT DATA CREATED")
+        print("DEFAULT DATA CREATED")
         print("=" * 60)
         print("\n🔐 SUPER ADMIN CREDENTIALS:")
         print("-" * 40)
@@ -117,7 +117,7 @@ def create_default_data():
         print("=" * 60)
         
     except Exception as e:
-        print(f"❌ Error creating default data: {e}")
+        print(f"Error creating default data: {e}")
         db.rollback()
         import traceback
         traceback.print_exc()

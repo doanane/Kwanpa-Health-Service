@@ -28,11 +28,11 @@ def create_superadmin():
         confirm_password = getpass.getpass("Confirm password: ").strip()
         
         if password != confirm_password:
-            print("❌ Passwords do not match. Try again.\n")
+            print("Passwords do not match. Try again.\n")
             continue
         
         if len(password) < 8:
-            print("❌ Password must be at least 8 characters.\n")
+            print("Password must be at least 8 characters.\n")
             continue
         
         break
@@ -54,7 +54,7 @@ def create_superadmin():
         existing_admin = db.query(Admin).filter(Admin.email == email).first()
         
         if existing_admin:
-            print(f"❌ Admin with email {email} already exists.")
+            print(f"Admin with email {email} already exists.")
             choice = input("Do you want to reset password? (y/n): ").lower()
             
             if choice == 'y':
@@ -62,11 +62,11 @@ def create_superadmin():
                 existing_admin.is_active = True
                 existing_admin.is_superadmin = True
                 db.commit()
-                print("✅ Password reset successfully!")
+                print("Password reset successfully!")
                 print(f"Updated admin: {email}")
                 return
             else:
-                print("❌ Operation cancelled.")
+                print("Operation cancelled.")
                 return
         
         # Create new admin
@@ -82,13 +82,13 @@ def create_superadmin():
         db.commit()
         db.refresh(new_admin)
         
-        print("✅ Super admin created successfully!")
+        print("Super admin created successfully!")
         print(f"Email: {email}")
         print(f"Password: [hidden]")
         print(f"Full Name: {full_name}")
         print(f"Is Superadmin: Yes")
         print(f"Is Active: Yes")
-        print("\n⚠️  Keep these credentials secure!")
+        print("\n Keep these credentials secure!")
 
 if __name__ == "__main__":
     create_superadmin()
