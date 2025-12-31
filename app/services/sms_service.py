@@ -13,7 +13,7 @@ class SMSService:
         self.sender_number = getattr(settings, 'INFOBIP_SENDER_NUMBER', '+447491163443')
         
         # if self.api_key and self.base_url:
-        #     logger.info(f"✅ Infobip SMS service initialized with sender: {self.sender_number}")
+        #     logger.info(f"Infobip SMS service initialized with sender: {self.sender_number}")
         # else:
         #     logger.warning("Infobip credentials not fully configured in .env file")
     
@@ -41,7 +41,7 @@ HEWAL3 Health System"""
         if vitals:
             vital_text = "\n".join([f"{k}: {v}" for k, v in vitals.items()])
         
-        message = f"""🚨 EMERGENCY ALERT 🚨
+        message = f"""EMERGENCY ALERT 🚨
 
 Patient: {patient_name}
 Alert Type: {alert_type}
@@ -60,7 +60,7 @@ This is an automated alert."""
     
     def send_appointment_reminder(self, to_phone: str, patient_name: str, appointment_time: str, doctor_name: str, location: str):
         """Send appointment reminder"""
-        message = f"""📅 Appointment Reminder
+        message = f"""Appointment Reminder
 
 Hello {patient_name},
 
@@ -75,6 +75,6 @@ HEWAL3 Health System"""
         
         return self.send_sms(to_phone, message)
 
-# ⚠️ CRITICAL: This line MUST be at the bottom of the file
+#  CRITICAL: This line MUST be at the bottom of the file
 # This creates the singleton instance that other files import
 sms_service = SMSService()

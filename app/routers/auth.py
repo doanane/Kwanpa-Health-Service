@@ -239,7 +239,7 @@ def create_refresh_token(user_id: int, db: Session):
                     const confirmPassword = document.getElementById('confirm_password').value;
                     
                     if (password !== confirmPassword) {{
-                        document.getElementById('message').innerHTML = '<p class="error">❌ Passwords do not match</p>';
+                        document.getElementById('message').innerHTML = '<p class="error">Passwords do not match</p>';
                         return;
                     }}
                     
@@ -253,10 +253,10 @@ def create_refresh_token(user_id: int, db: Session):
                     const messageDiv = document.getElementById('message');
                     
                     if (response.ok) {{
-                        messageDiv.innerHTML = `<p class="success">✅ ${{result.message}}</p>`;
+                        messageDiv.innerHTML = `<p class="success">${{result.message}}</p>`;
                         messageDiv.innerHTML += '<p>You can now <a href="/docs#/authentication/login">login</a> with your new password.</p>';
                     }} else {{
-                        messageDiv.innerHTML = `<p class="error">❌ ${{result.detail || 'Error resetting password'}}</p>`;
+                        messageDiv.innerHTML = `<p class="error">${{result.detail || 'Error resetting password'}}</p>`;
                     }}
                 }});
             </script>
@@ -347,7 +347,7 @@ async def signup_caregiver(
     db.commit()
     db.refresh(user)  
     
-    logger.info(f"✅ Caregiver user created: ID={user.id}, Email={user.email}")
+    logger.info(f"Caregiver user created: ID={user.id}, Email={user.email}")
     
     
     verification_token = generate_token()

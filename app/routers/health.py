@@ -6,19 +6,25 @@ from app.database import get_db
 from app.auth.security import get_current_active_user  
 from app.models.user import User, UserProfile
 from app.models.health import HealthData, FoodLog, WeeklyProgress, HealthInsight
-from app.schemas.health import HealthDataCreate, HealthDataResponse, FoodLogCreate, FoodLogResponse, WeeklyProgressResponse, HealthDashboardResponse, ProgressUpdateRequest
+from app.schemas.health import (
+    HealthDataCreate, HealthDataResponse, 
+    FoodLogCreate, FoodLogResponse, 
+    WeeklyProgressResponse, HealthDashboardResponse, 
+    ProgressUpdateRequest,
+    ActivityRing, HealthTrend, HealthCategory, DailyHealthScore
+)
 
 router = APIRouter(prefix="/health", tags=["health"])
 
 def get_daily_tip():
     tips = [
-        "Try reducing salt intake this week",
-        "Increase your water consumption to 8 glasses daily",
-        "Consider adding a 30-minute walk to your routine",
-        "Include more leafy greens in your meals",
-        "Monitor your sugar intake carefully",
-        "Practice mindful eating habits",
-        "Get at least 7-8 hours of sleep nightly"
+        "Walking 30 minutes a day can lower blood pressure.",
+        "Hydration is key! Drink water before every meal.",
+        "Better sleep starts with a consistent bedtime routine.",
+        "Reduce sugar intake to improve energy levels.",
+        "Stretching daily improves flexibility and reduces pain.",
+        "Mindfulness meditation can lower stress in 10 minutes.",
+        "Eating slowly helps with digestion and weight control."
     ]
     return random.choice(tips)
 
@@ -27,16 +33,43 @@ async def get_health_dashboard(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Get user profile FIRST to get welcome_name
-    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
-    welcome_name = profile.full_name if profile else "User"
     
-    # Get health data
+    
+    
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    welcome_name = profile.full_name if profile else current_user.username
+    
+    
+    
+    
     health_data = db.query(HealthData).filter(
         HealthData.user_id == current_user.id
     ).order_by(HealthData.date.desc()).first()
     
-    # Get or create weekly progress
+    
+    if not health_data:
+        health_data = HealthData(
+            user_id=current_user.id,
+            steps=0,
+            sleep_time=480,
+            water_intake=0,
+            blood_pressure="120/80",
+            heart_rate=72,
+            blood_glucose=90.0,
+            calories_burned=0
+        )
+        db.add(health_data)
+        db.commit()
+        db.refresh(health_data)
+
+    
+    steps = health_data.steps if health_data.steps is not None else 0
+    calories = health_data.calories_burned if health_data.calories_burned is not None else 0
+    water = health_data.water_intake if health_data.water_intake is not None else 0
+    
+    
+    
+    
     today = datetime.now()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
@@ -61,14 +94,15 @@ async def get_health_dashboard(
         db.commit()
         db.refresh(weekly_progress)
     
-    # Get today's food logs
+    
+    
+    
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     today_food_logs = db.query(FoodLog).filter(
         FoodLog.user_id == current_user.id,
         FoodLog.created_at >= today_start
     ).order_by(FoodLog.created_at.desc()).limit(5).all()
     
-    # Process recent meals
     recent_meals = []
     for log in today_food_logs:
         recent_meals.append({
@@ -79,24 +113,86 @@ async def get_health_dashboard(
             "created_at": log.created_at
         })
     
-    # Calculate diet score
-    diet_score = None
+    diet_score = 0
     if today_food_logs:
-        diet_score = sum(log.diet_score or 0 for log in today_food_logs) // len(today_food_logs)
+        total_diet = sum(log.diet_score or 0 for log in today_food_logs)
+        diet_score = total_diet // len(today_food_logs)
     
-    daily_tip = get_daily_tip()
     
-    return {
-        "welcome_message": f"Welcome, {welcome_name}. I hope you are doing well today. Check in for your weekly progress.",
-        "weekly_progress": weekly_progress,
-        "health_snapshot": health_data or HealthDataResponse(
-            id=0, user_id=current_user.id, date=datetime.now()
-        ),
-        "diet_score": diet_score,
-        "daily_tip": daily_tip,
-        "recent_meals": recent_meals,
-        "meal_count_today": len(today_food_logs)
-    }
+    
+    
+    
+    
+    rings = ActivityRing(
+        move=calories,
+        move_goal=600,
+        exercise=25, 
+        exercise_goal=30,
+        stand=8,     
+        stand_goal=12
+    )
+
+    
+    score_val = 60 
+    if steps > 5000: score_val += 15
+    if steps > 8000: score_val += 10
+    if water > 1500: score_val += 5
+    if diet_score > 70: score_val += 10
+    
+    if score_val > 100: score_val = 100
+    
+    daily_score_obj = DailyHealthScore(
+        score=score_val,
+        message=f"Welcome, {welcome_name}. You're active today!",
+        trend_percentage=12
+    )
+
+    
+    trends = [
+        HealthTrend(category="Walking", icon="walk", value=f"{steps} steps", trend="up", message="Above average walking pace."),
+        HealthTrend(category="Active Energy", icon="flame", value=f"{calories} kcal", trend="up", message="Burning calories well."),
+        HealthTrend(category="Sleep", icon="bed", value="6h 45m", trend="down", message="Try to sleep earlier."),
+        HealthTrend(category="Stand", icon="body", value="8 hr", trend="neutral", message="Meeting stand goals."),
+    ]
+
+    
+    categories = [
+        
+        HealthCategory(id="rings", title="Activity", value=f"{int((calories/600)*100)}%", unit="goal", icon="aperture", color="#E11D48", is_workout=False),
+        HealthCategory(id="steps", title="Steps", value=f"{steps:,}", unit="steps", icon="footsteps", color="#F59E0B", is_workout=False),
+        
+        
+        HealthCategory(id="hr", title="Heart Rate", value=f"{health_data.heart_rate or 72}", unit="BPM", icon="heart", color="#FF3B30", is_workout=False),
+        HealthCategory(id="bp", title="Blood Pressure", value=f"{health_data.blood_pressure or '120/80'}", unit="mmHg", icon="pulse", color="#FF3B30", is_workout=False),
+        HealthCategory(id="oxy", title="Blood Oxygen", value="98", unit="%", icon="water", color="#5AC8FA", is_workout=False),
+        
+        
+        HealthCategory(id="water", title="Water Intake", value=f"{water}", unit="ml", icon="water", color="#007AFF", is_workout=False),
+        HealthCategory(id="sleep", title="Sleep Analysis", value="6h 45m", unit="in bed", icon="bed", color="#FF9500", is_workout=False),
+        HealthCategory(id="mind", title="Mindfulness", value="12", unit="min", icon="leaf", color="#34C759", is_workout=False),
+
+        
+        HealthCategory(id="run", title="Outdoor Run", value="5.0", unit="km", icon="walk", color="#34C759", is_workout=True),
+        HealthCategory(id="cycle", title="Cycling", value="12.4", unit="km", icon="bicycle", color="#34C759", is_workout=True),
+        HealthCategory(id="swim", title="Swimming", value="--", unit="m", icon="water", color="#34C759", is_workout=True),
+    ]
+
+    return HealthDashboardResponse(
+        
+        welcome_message=f"Welcome, {welcome_name}",
+        weekly_progress=weekly_progress,
+        health_snapshot=health_data,
+        diet_score=diet_score,
+        daily_tip=get_daily_tip(),
+        recent_meals=recent_meals,
+        meal_count_today=len(today_food_logs),
+        
+        
+        daily_score=daily_score_obj,
+        activity_rings=rings,
+        trends=trends,
+        categories=categories
+    )
 
 @router.post("/food-log", response_model=FoodLogResponse)
 async def log_food(
@@ -142,9 +238,17 @@ async def get_weekly_progress(
     ).first()
     
     if not progress:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Weekly progress not found"
+        
+        return WeeklyProgressResponse(
+            id=0,
+            user_id=current_user.id,
+            week_start_date=week_start,
+            week_end_date=week_start + timedelta(days=6),
+            progress_score=0,
+            progress_color="gray",
+            steps_goal=10000,
+            sleep_goal=480,
+            water_goal=2000
         )
     
     return progress
@@ -159,7 +263,6 @@ async def get_health_snapshot(
     ).order_by(HealthData.date.desc()).first()
     
     if not snapshot:
-        
         snapshot = HealthData(
             user_id=current_user.id,
             steps=0,
@@ -208,7 +311,6 @@ async def update_weekly_progress(
     today = datetime.now()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
-    
     
     if progress_data.progress_score >= 80:
         progress_color = "green"

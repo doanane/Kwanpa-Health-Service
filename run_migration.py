@@ -8,4 +8,4 @@ from migrations_001_initial_schema import create_tables
 if __name__ == "__main__":
     print("🚀 Running database migration...")
     create_tables()
-    print("✅ Migration completed successfully!")
+    print("Migration completed successfully!")

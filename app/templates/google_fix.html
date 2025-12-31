@@ -59,7 +59,7 @@
                 if (!data.configured) {
                     const warning = document.createElement('div');
                     warning.className = 'error';
-                    warning.innerHTML = '<h3>⚠️ Google OAuth Not Configured</h3><p>Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env file</p>';
+                    warning.innerHTML = '<h3>Google OAuth Not Configured</h3><p>Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env file</p>';
                     document.body.prepend(warning);
                 }
             });

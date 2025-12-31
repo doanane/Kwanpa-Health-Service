@@ -18,4 +18,4 @@ print('Database URL:', settings.DATABASE_URL)
 create_tables()
 "
 
-echo "✅ Build completed successfully!"
+echo "Build completed successfully!"

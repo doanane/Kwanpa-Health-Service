@@ -42,17 +42,17 @@ try:
     # Test connection
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
-    logger.info("✅ Database connection successful")
+    logger.info("Database connection successful")
     
 except Exception as e:
-    logger.error(f"❌ Database connection failed: {e}")
+    logger.error(f"Database connection failed: {e}")
     
     # Fallback to SQLite
     logger.info("Falling back to SQLite...")
     engine = create_engine("sqlite:///./hewal3.db", 
                           connect_args={"check_same_thread": False},
                           echo=True)
-    logger.info("✅ Using SQLite database")
+    logger.info("Using SQLite database")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -69,19 +69,19 @@ def create_tables(preserve_data: bool = True):
     try:
         # SQLite fallback often has schema drift; recreate tables to match models
         if engine.dialect.name == "sqlite":
-            logger.warning("⚠️ SQLite detected – recreating tables to keep schema in sync")
+            logger.warning("SQLite detected – recreating tables to keep schema in sync")
             Base.metadata.drop_all(bind=engine)
             Base.metadata.create_all(bind=engine)
         else:
             if not preserve_data and settings.ENVIRONMENT == "development":
-                logger.warning("⚠️ Dropping tables (data will be lost!)")
+                logger.warning("Dropping tables (data will be lost!)")
                 Base.metadata.drop_all(bind=engine)
             Base.metadata.create_all(bind=engine)
         
         # if preserve_data:
-        #     logger.info("✅ Database tables verified - existing data preserved")
+        #     logger.info("Database tables verified - existing data preserved")
         # else:
-        #     logger.info("✅ Database tables recreated - all data cleared")
+        #     logger.info("Database tables recreated - all data cleared")
         
     except Exception as e:
         logger.error(f"Error creating tables: {e}")

@@ -39,11 +39,11 @@ def add_caregiver_columns():
                 conn.execute(text(sql))
                 conn.commit()
             
-            logger.info("✅ Database updated successfully!")
-            logger.info("✅ Caregiver columns added to users table")
+            logger.info("Database updated successfully!")
+            logger.info("Caregiver columns added to users table")
             
     except Exception as e:
-        logger.error(f"❌ Error updating database: {e}")
+        logger.error(f"Error updating database: {e}")
         return False
     
     return True
@@ -56,12 +56,12 @@ if __name__ == "__main__":
     success = add_caregiver_columns()
     
     if success:
-        print("\n✅ Database update completed!")
+        print("\nDatabase update completed!")
         print("\nNext steps:")
         print("1. Restart your FastAPI server")
         print("2. Test caregiver signup: POST /auth/signup/caregiver")
         print("3. Check docs: http://localhost:8000/docs")
     else:
-        print("\n❌ Database update failed!")
+        print("\nDatabase update failed!")
     
     print("="*60)

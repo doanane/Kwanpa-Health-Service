@@ -66,9 +66,9 @@ async def redirect_reset_password(token: str = None):
 def startup_event():
     try:
         create_tables()
-        logger.info("✅ Database setup completed")
+        logger.info("Database setup completed")
     except Exception as e:
-        logger.warning(f"⚠️ Database setup warning: {e}")
+        logger.warning(f"Database setup warning: {e}")
 
 # --- IMPORT ROUTERS (No try/except to ensure visibility of errors) ---
 

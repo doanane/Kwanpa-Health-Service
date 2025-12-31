@@ -1,9 +1,9 @@
-# app/auth/security.py
+
 from datetime import datetime, timedelta
 from typing import Optional, Union
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Depends
-# 1. Import HTTPBearer instead of OAuth2PasswordBearer
+
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials 
 from sqlalchemy.orm import Session
 import re
@@ -11,9 +11,9 @@ from app.config import settings
 from app.database import get_db
 from app.auth.hashing import verify_password, get_password_hash
 
-# 2. Change the security scheme
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")  <-- REMOVE THIS
-security = HTTPBearer()  # <-- ADD THIS
+
+
+security = HTTPBearer()  
 
 def validate_password_strength(password: str) -> bool:
     """Enforce strong password policy"""
@@ -41,16 +41,16 @@ def create_access_token(data: dict, user_type: str, expires_delta: Optional[time
     return encoded_jwt
 
 async def get_current_user_or_admin(
-    # 3. Update the dependency to accept HTTPAuthorizationCredentials
+    
     auth: HTTPAuthorizationCredentials = Depends(security), 
     db: Session = Depends(get_db)
 ):
     """Get current user or admin from JWT token"""
     
-    # 4. Extract the token string from the credentials object
+    
     token = auth.credentials 
 
-    # ⬇️ Import models HERE to prevent Circular Import errors
+    
     from app.models.user import User
     from app.models.caregiver import Doctor
     from app.models.admin import Admin
@@ -86,19 +86,19 @@ async def get_current_user_or_admin(
             return doctor
             
         elif user_type == "caregiver":
-            # Caregivers are Users with is_caregiver=True
+            
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user is None:
                 raise credentials_exception
             return user
             
         else:
-            # Standard User
+            
             try:
                 u_id = int(user_id)
                 user = db.query(User).filter(User.id == u_id).first()
             except ValueError:
-                # Fallback if sub was email
+                
                 user = db.query(User).filter(User.email == user_id).first()
                 
             if user is None:
