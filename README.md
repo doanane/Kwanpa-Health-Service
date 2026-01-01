@@ -1,9 +1,11 @@
 # HEWAL3 Health Management System
 
-##  Overview
+## Overview
+
 HEWAL3 is an AI-powered health management system with emergency response capabilities, designed for chronic disease management with a focus on Ghanaian healthcare context.
 
 ## Features
+
 - **User Authentication**: JWT-based auth with Google OAuth integration
 - **Health Dashboard**: Track steps, heart rate, sleep, and nutrition
 - **AI Food Analysis**: Upload meal images for nutritional analysis using Azure AI Vision
@@ -12,7 +14,8 @@ HEWAL3 is an AI-powered health management system with emergency response capabil
 - **Emergency Alerts**: Real-time vital monitoring with SMS alerts
 - **Progress Tracking**: Weekly progress and achievement system
 
-##  Tech Stack
+## Tech Stack
+
 - **Backend**: FastAPI, Python 3.11+
 - **Database**: PostgreSQL (Azure/Render)
 - **Authentication**: JWT, Google OAuth
@@ -22,9 +25,13 @@ HEWAL3 is an AI-powered health management system with emergency response capabil
 - **Storage**: Azure Blob Storage
 - **Deployment**: Render (Backend), Vercel (Frontend)
 
-
 API: http://localhost:8000
 
 Docs: http://localhost:8000/docs
 
 Redoc: http://localhost:8000/redoc
+
+Chores:
+
+1. create repo to get caregiver data(like phone number, email based on a particular user's ID).
+2. Discuss with team about using the native methods for alarm/ dialer.

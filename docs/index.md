@@ -13,5 +13,8 @@ This is the backend API for HEWAL3 Health Management System.
 ## Development
 
 To run locally:
+
 ```bash
 uvicorn app.main:app --reload
+
+```
