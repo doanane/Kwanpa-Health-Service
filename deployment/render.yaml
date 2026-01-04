@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: hewal3-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hewal3-database
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+    healthCheckPath: /health
+    autoDeploy: true
+
+databases:
+  - name: hewal3-database
+    plan: free
+    databaseName: hewal3
+    user: hewal3_user

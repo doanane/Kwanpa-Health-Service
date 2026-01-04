@@ -1,12 +1,32 @@
-# app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 import logging
 from app.database import create_tables, engine
-from app.config import settings
+from app.config import settings         
 from fastapi.responses import RedirectResponse, HTMLResponse
+from app.seed import seed_db
+
+from app.routers.iot import router as iot_router
+# --- IMPORT ROUTERS ---
+from app.routers.auth import router as auth_router
+from app.routers.users import router as users_router
+from app.routers.health import router as health_router
+from app.routers.notifications import router as notifications_router
+from app.routers.caregivers import router as caregivers_router
+from app.routers.doctors import router as doctors_router
+from app.routers.admin import router as admin_router
+from app.routers.food_analysis import router as food_analysis_router
+from app.routers.superadmin import router as superadmin_router
+from app.routers.google_auth import router as google_auth_router
+from app.routers.leaderboard import router as leaderboard_router
+
+from app.routers.caregiver_dashboard import router as caregiver_dashboard_router
+from app.routers.caregiver_tasks import router as caregiver_tasks_router
+from app.routers.caregiver_schedule import router as caregiver_schedule_router
+from app.routers.caregiver_analytics import router as caregiver_analytics_router
+from app.routers.messages import router as messages_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,7 +39,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS Configuration
 allowed_origins = [
     "http://localhost:8081",
     "http://localhost:3000",
@@ -29,12 +48,10 @@ allowed_origins = [
 ]
 
 if settings.ENVIRONMENT == "development":
-    allowed_origins.extend(
-        [
-            "http://localhost:*",
-            "http://127.0.0.1:*",
-        ]
-    )
+    allowed_origins.extend([
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+    ])
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,26 +63,10 @@ app.add_middleware(
     max_age=3600,
 )
 
-# Ensure upload directories exist
 os.makedirs("uploads", exist_ok=True)
 os.makedirs("uploads/profile_images", exist_ok=True)
 os.makedirs("uploads/profile_photos", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-
-@app.get("/verify-email/{token}", include_in_schema=False)
-async def redirect_verify_email(token: str):
-    """Redirect old verification links"""
-    return RedirectResponse(url=f"/auth/verify-email-page/{token}")
-
-
-@app.get("/reset-password", include_in_schema=False)
-async def redirect_reset_password(token: str = None):
-    """Redirect old reset password links"""
-    if token:
-        return RedirectResponse(url=f"/auth/reset-password-page?token={token}")
-    return RedirectResponse(url="/auth/reset-password-page")
-
 
 @app.on_event("startup")
 def startup_event():
@@ -75,33 +76,14 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Database setup warning: {e}")
 
-
-# --- IMPORT ROUTERS (No try/except to ensure visibility of errors) ---
-
-from app.routers.auth import router as auth_router
-from app.routers.iot import router as iot_router  # Add this import
-from app.routers.users import router as users_router
-from app.routers.health import router as health_router
-from app.routers.notifications import router as notifications_router
-from app.routers.caregivers import router as caregivers_router
-from app.routers.doctors import router as doctors_router
-from app.routers.admin import router as admin_router
-from app.routers.food_analysis import router as food_analysis_router
-from app.routers.superadmin import router as superadmin_router
-from app.routers.google_auth import router as google_auth_router
-from app.routers.leaderboard import router as leaderboard_router
-
-# Attempt to load system router (optional)
 try:
     from app.routers.system import router as system_router
-
     app.include_router(system_router)
 except ImportError:
     pass
 
-# --- INCLUDE ROUTERS ---
 app.include_router(auth_router)
-app.include_router(iot_router)  # Add this line
+app.include_router(iot_router) 
 app.include_router(users_router)
 app.include_router(health_router)
 app.include_router(notifications_router)
@@ -113,6 +95,11 @@ app.include_router(superadmin_router)
 app.include_router(google_auth_router)
 app.include_router(leaderboard_router)
 
+app.include_router(caregiver_dashboard_router)
+app.include_router(caregiver_tasks_router)
+app.include_router(caregiver_schedule_router)
+app.include_router(caregiver_analytics_router)
+app.include_router(messages_router)
 
 @app.get("/")
 def read_root():
@@ -122,7 +109,6 @@ def read_root():
         "status": "online",
     }
 
-
 @app.get("/health")
 async def health_check():
     try:
@@ -131,20 +117,17 @@ async def health_check():
     except Exception as e:
         logger.error(f"Health check DB error: {e}")
         db_status = "disconnected"
-
+    
     return {
         "status": "healthy" if db_status == "connected" else "degraded",
-        "service": "HEWAL3 API",
+        "service": "HEWAL3 API", 
         "database": db_status,
-        "environment": settings.ENVIRONMENT,
+        "environment": settings.ENVIRONMENT
     }
-
-
 @app.options("/{full_path:path}", include_in_schema=False)
 async def options_handler(full_path: str):
     """Handle preflight requests"""
     return {"status": "ok"}
-
 
 @app.get("/oauth/callback", response_class=HTMLResponse, include_in_schema=False)
 async def oauth_callback_page():
@@ -153,10 +136,19 @@ async def oauth_callback_page():
     if os.path.exists(path):
         with open(path, "r") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(
-        content="<h1>OAuth Callback</h1><p>Processing authentication...</p>"
-    )
+    return HTMLResponse(content="<h1>OAuth Callback</h1><p>Processing authentication...</p>")
 
+@app.get("/verify-email/{token}", include_in_schema=False)
+async def redirect_verify_email(token: str):
+    """Redirect old verification links"""
+    return RedirectResponse(url=f"/auth/verify-email-page/{token}")
+
+@app.get("/reset-password", include_in_schema=False)
+async def redirect_reset_password(token: str = None):
+    """Redirect old reset password links"""
+    if token:
+        return RedirectResponse(url=f"/auth/reset-password-page?token={token}")
+    return RedirectResponse(url="/auth/reset-password-page")
 
 @app.get("/welcome", response_class=HTMLResponse)
 async def welcome_page():
@@ -168,11 +160,12 @@ async def welcome_page():
             <style>
                 body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
                 .container { max-width: 800px; margin: 0 auto; }
+                .logo { color: #4CAF50; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
                 .button { 
                     display: inline-block; 
                     padding: 12px 24px; 
-                    margin: 10px; 
-                    background-color: #4CAF50; 
+                    margin: 10px;
+                    background-color: #4CAF50;
                     color: white; 
                     text-decoration: none; 
                     border-radius: 5px; 
@@ -183,11 +176,19 @@ async def welcome_page():
         </head>
         <body>
             <div class="container">
-                <h1>HEWAL3 Health System</h1>
+                <div class="logo">HEWAL3</div>
+                <h1>Health Management System</h1>
                 <p>AI-powered health tracking and caregiver coordination</p>
+                
                 <div class="section">
                     <h2>Get Started</h2>
                     <a href="/docs" class="button api-button">API Documentation</a>
+                </div>
+                
+                <div class="section">
+                    <h2>Features</h2>
+                    <p>• Health Data Tracking • AI Food Analysis • Emergency Alerts</p>
+                    <p>• Caregiver Portal • Doctor Dashboard • Progress Monitoring</p>
                 </div>
             </div>
         </body>

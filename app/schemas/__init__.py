@@ -3,6 +3,7 @@ from .health import *
 from .notification import *
 from .caregiver import *
 from .doctor import *
+from .message import *
 
 __all__ = [
     # User schemas
@@ -20,5 +21,8 @@ __all__ = [
     "CaregiverRequest", "CaregiverRelationshipResponse", "CaregiverDashboard",
     
     # Doctor schemas
-    "DoctorCreate", "DoctorLogin", "DoctorResponse", "PatientOverview", "DoctorDashboard"
+    "DoctorCreate", "DoctorLogin", "DoctorResponse", "PatientOverview", "DoctorDashboard",
+    
+    # Message schemas
+    "MessageCreate", "MessageResponse", "ConversationResponse", "MessageReadRequest", "TypingStatus"
 ]

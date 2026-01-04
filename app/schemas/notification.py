@@ -9,6 +9,7 @@ class NotificationBase(BaseModel):
     message: str = Field(..., description="Notification message")
 
 class NotificationCreate(NotificationBase):
+    user_id: Optional[int] = Field(None, description="ID of the user to notify")
     sender_id: Optional[int] = Field(None, description="ID of the sender")
     sender_type: Optional[str] = Field(None, description="Type of sender")
 

@@ -273,10 +273,7 @@ async def get_health_snapshot(
             blood_glucose=90.0
         )
         db.add(snapshot)
-        db.commit()
-        db.refresh(snapshot)
     
-    return snapshot
 
 @router.post("/health-data", response_model=HealthDataResponse)
 async def add_health_data(

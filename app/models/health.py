@@ -24,7 +24,6 @@ class HealthData(Base):
 
 class FoodLog(Base):
     __tablename__ = "food_logs"
-    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     meal_type = Column(String)

@@ -1,15 +1,13 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
+from app.database import Base  # <--- This is the missing import!
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=True)
-    action = Column(String)  # login, logout, create, update, delete
-    resource = Column(String)  # user, health_data, food_log
-    resource_id = Column(Integer, nullable=True)
-    details = Column(JSON)
-    ip_address = Column(String)
-    user_agent = Column(Text)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    action = Column(String, index=True)
+    details = Column(Text, nullable=True)
+    ip_address = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

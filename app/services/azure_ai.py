@@ -15,7 +15,7 @@ class AzureAIService:
         self.vision_client = None
         self.openai_client = None
         
-        # Initialize Azure Computer Vision
+        # Initialize Azure Computer Vision (Legacy/Backup)
         if settings.AZURE_AI_VISION_ENDPOINT and settings.AZURE_AI_VISION_KEY:
             try:
                 credentials = CognitiveServicesCredentials(settings.AZURE_AI_VISION_KEY)
@@ -26,8 +26,6 @@ class AzureAIService:
                 logger.info("Azure AI Vision initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize Azure Vision: {e}")
-        else:
-            logger.warning("Azure Vision credentials not configured")
         
         # Initialize Azure OpenAI
         if settings.AZURE_OPENAI_ENDPOINT and settings.AZURE_OPENAI_KEY:
@@ -44,33 +42,44 @@ class AzureAIService:
             logger.warning("Azure OpenAI credentials not configured")
     
     def analyze_food_image(self, image_path: str) -> Optional[Dict[str, Any]]:
-        """Analyze food image using Azure Computer Vision"""
-        if not self.vision_client:
-            logger.warning("Azure Vision not configured, using mock analysis")
+        """Analyze food image using Azure Custom Vision Prediction API"""
+        if not settings.AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT or not settings.AZURE_CUSTOM_VISION_PREDICTION_KEY:
+            logger.warning("Azure Custom Vision not configured, using mock analysis")
             return self._mock_food_analysis()
         
         try:
             with open(image_path, "rb") as image_file:
                 image_data = image_file.read()
             
-            # Analyze image
-            analysis_result = self.vision_client.analyze_image_in_stream(
-                image_data,
-                visual_features=[
-                    VisualFeatureTypes.tags,
-                    VisualFeatureTypes.objects,
-                    VisualFeatureTypes.description
-                ]
+            # Custom Vision Prediction API headers
+            headers = {
+                "Prediction-Key": settings.AZURE_CUSTOM_VISION_PREDICTION_KEY,
+                "Content-Type": "application/octet-stream"
+            }
+            
+            # Call Custom Vision Prediction API
+            response = requests.post(
+                settings.AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT,
+                headers=headers,
+                data=image_data
             )
             
-            # Extract food-related tags
-            food_tags = []
-            for tag in analysis_result.tags:
-                if tag.confidence > 0.7:  # Only high confidence tags
-                    food_tags.append(tag.name.lower())
+            if response.status_code != 200:
+                logger.error(f"Custom Vision API error: {response.status_code} - {response.text}")
+                return self._mock_food_analysis()
             
-            # Get description
-            description = analysis_result.description.captions[0].text if analysis_result.description.captions else ""
+            analysis_result = response.json()
+            
+            # Extract predictions
+            predictions = analysis_result.get("predictions", [])
+            if not predictions:
+                logger.warning("No predictions returned from Custom Vision")
+                return self._mock_food_analysis()
+            
+            # Get top prediction
+            top_prediction = predictions[0]
+            detected_food = top_prediction.get("tagName", "Unknown food")
+            confidence = top_prediction.get("probability", 0)
             
             # Ghanaian food database
             ghanaian_foods = {
@@ -86,40 +95,26 @@ class AzureAIService:
             }
             
             # Match detected food with Ghanaian foods
-            detected_food = None
             nutrients = None
-            
             for food_name, food_info in ghanaian_foods.items():
-                if any(food_word in description.lower() for food_word in food_name.split()):
-                    detected_food = food_name
+                if food_name in detected_food.lower() or detected_food.lower() in food_name:
                     nutrients = food_info
                     break
             
-            if not detected_food and food_tags:
-                # Try to match with tags
-                for tag in food_tags:
-                    for food_name in ghanaian_foods.keys():
-                        if tag in food_name or food_name in tag:
-                            detected_food = food_name
-                            nutrients = ghanaian_foods[food_name]
-                            break
-                    if detected_food:
-                        break
-            
             result = {
-                "description": description,
-                "tags": food_tags,
-                "detected_food": detected_food or "Unknown food",
+                "description": f"Detected {detected_food} with {confidence:.1%} confidence",
+                "tags": [p.get("tagName") for p in predictions if p.get("probability", 0) > 0.3],
+                "detected_food": detected_food,
                 "nutrients": nutrients or {"calories": 200, "carbs": 40, "protein": 10, "fat": 5, "type": "unknown"},
-                "confidence": analysis_result.description.captions[0].confidence if analysis_result.description.captions else 0.5,
-                "analysis_source": "azure_ai_vision"
+                "confidence": confidence,
+                "analysis_source": "azure_custom_vision"
             }
             
-            logger.info(f"Food analysis completed: {detected_food}")
+            logger.info(f"Custom Vision analysis completed: {detected_food} ({confidence:.1%})")
             return result
             
         except Exception as e:
-            logger.error(f"Error analyzing food image: {e}")
+            logger.error(f"Error analyzing food image with Custom Vision: {e}")
             return self._mock_food_analysis()
     
     def get_health_recommendation(self, user_data: Dict[str, Any], food_data: Dict[str, Any]) -> str:

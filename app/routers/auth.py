@@ -68,8 +68,47 @@ class TokenResponse(BaseModel):
     user_id: int
     email: str
     is_email_verified: bool
+    is_caregiver: bool = False 
+    caregiver_id: Optional[str] = None 
+    username: str = None
+    profile_image: str = None
 
+class PatientSignupRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    username: str
+    phone_number: str = None
+def create_session_log(db: Session, user_id: int, request: Request):
+    session_token = secrets.token_urlsafe(32)
+    device_info = request.headers.get("User-Agent", "Unknown")
+    ip_address = request.client.host if request.client else "Unknown"
+    
+    session = UserSession(
+        user_id=user_id,
+        session_token=session_token,
+        device_info=device_info,
+        ip_address=ip_address,
+        expires_at=datetime.utcnow() + timedelta(days=30)
+    )
+    db.add(session)
+    db.commit()
 
+def create_auth_tokens(user: User, db: Session):
+    access_token = create_access_token(
+        data={"sub": str(user.id), "type": "caregiver" if user.is_caregiver else "patient"},
+        user_type="caregiver" if user.is_caregiver else "patient"
+    )
+    
+    refresh_token_str = secrets.token_urlsafe(32)
+    refresh_token_db = RefreshToken(
+        user_id=user.id,
+        token=refresh_token_str,
+        expires_at=datetime.utcnow() + timedelta(days=7)
+    )
+    db.add(refresh_token_db)
+    db.commit()
+    
+    return access_token, refresh_token_str
 def generate_otp(length=6):
     """Generate numeric OTP"""
     return ''.join(secrets.choice(string.digits) for _ in range(length))
@@ -266,132 +305,6 @@ def create_refresh_token(user_id: int, db: Session):
 
 
 
-@router.post("/signup/caregiver", response_model=CaregiverSignupResponse)
-async def signup_caregiver(
-    caregiver_data: CaregiverSignupRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """Register a new caregiver"""
-    
-    if not caregiver_data.agree_to_terms:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You must agree to the terms and conditions"
-        )
-    
-    
-    existing_user = db.query(User).filter(User.email == caregiver_data.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
-    
-    
-    base_username = f"{caregiver_data.first_name.lower()}.{caregiver_data.last_name.lower()}"
-    username = base_username
-    
-    counter = 1
-    while db.query(User).filter(User.username == username).first():
-        username = f"{base_username}{counter}"
-        counter += 1
-    
-    
-    hashed_password = get_pass_hash(caregiver_data.password)
-    
-    
-    
-    caregiver_id = f"CG{uuid.uuid4().hex[:8].upper()}"
-    
-    while db.query(User).filter(User.caregiver_id == caregiver_id).first():
-        caregiver_id = f"CG{uuid.uuid4().hex[:8].upper()}"
-    
-    
-    user = User(
-        email=caregiver_data.email,
-        username=username,
-        hashed_password=hashed_password,
-        phone_number=caregiver_data.phone_number,
-        is_caregiver=True,  
-        is_email_verified=False
-    )
-    
-    
-    try:
-        user.caregiver_id = caregiver_id
-    except Exception as exc:
-        logger.exception(
-            "Failed to set caregiver_id '%s' for caregiver user with email '%s'",
-            caregiver_id,
-            caregiver_data.email,
-        )
-    
-    try:
-        user.first_name = caregiver_data.first_name
-    except Exception as exc:
-        logger.exception(
-            "Failed to set first_name for caregiver user with email '%s'",
-            caregiver_data.email,
-        )
-    
-    try:
-        user.last_name = caregiver_data.last_name
-    except Exception as exc:
-        logger.exception(
-            "Failed to set last_name for caregiver user with email '%s'",
-            caregiver_data.email,
-        )
-    
-    db.add(user)
-    db.commit()
-    db.refresh(user)  
-    
-    logger.info(f"Caregiver user created: ID={user.id}, Email={user.email}")
-    
-    
-    verification_token = generate_token()
-    expires_at = datetime.utcnow() + timedelta(hours=24)
-    
-    verification = EmailVerificationToken(
-        user_id=user.id,  
-        token=verification_token,
-        expires_at=expires_at
-    )
-    
-    db.add(verification)
-    db.commit()
-    
-    
-    background_tasks.add_task(
-        email_service.send_caregiver_welcome_email,
-        user.email,
-        f"{caregiver_data.first_name} {caregiver_data.last_name}",
-        caregiver_id,
-        verification_token
-    )
-    
-    
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        user_type="caregiver"
-    )
-    
-    
-    refresh_token = create_refresh_token(user.id, db)
-    
-    return {
-        "caregiver_id": caregiver_id,
-        "email": user.email,
-        "first_name": caregiver_data.first_name,
-        "last_name": caregiver_data.last_name,
-        "caregiver_type": caregiver_data.caregiver_type,
-        "message": f"Caregiver account created successfully. Your Caregiver ID is: {caregiver_id}",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "user_id": user.id,
-        "username": username
-    }
 
 @router.post("/signup", response_model=TokenResponse)
 async def signup(
@@ -473,76 +386,129 @@ async def signup(
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user_type="user",
+        user_type=user_type,
         user_id=user.id,
         email=user.email,
         is_email_verified=user.is_email_verified
     )
 
 @router.post("/login", response_model=TokenResponse)
-async def login(
+async def login_patient(
     login_data: UserLogin,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Login with email and password"""
     user = db.query(User).filter(User.email == login_data.email).first()
     
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
-        )
-    
-    if not verify_pass(login_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated"
-        )
-    
-    
+    if not user or not verify_pass(login_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
     user.last_login = datetime.utcnow()
     db.commit()
+
+    access_token, refresh_token = create_auth_tokens(user, db)
+    create_session_log(db, user.id, request)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user_type": "caregiver" if user.is_caregiver else "patient",
+        "user_id": user.id,
+        "caregiver_id": user.caregiver_id if user.is_caregiver else None,
+        "email": user.email,
+        "username": user.username,
+        "is_email_verified": user.is_email_verified,
+        "profile_image": user.profile_image_url
+    }
+
+@router.post("/signup/caregiver", response_model=CaregiverSignupResponse)
+async def signup_caregiver(
+    caregiver_data: CaregiverSignupRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    if not caregiver_data.agree_to_terms:
+        raise HTTPException(status_code=400, detail="You must agree to the terms")
+
+    if db.query(User).filter(User.email == caregiver_data.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    caregiver_id = f"CG{uuid.uuid4().hex[:8].upper()}"
+    username = f"{caregiver_data.first_name.lower()}.{caregiver_data.last_name.lower()}"
     
-    
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        user_type="user"
-    )
-    
-    refresh_token = create_refresh_token(user.id, db)
-    
-    
-    session_token = generate_token()
-    device_info = request.headers.get("User-Agent", "Unknown")
-    ip_address = request.client.host if request.client else "Unknown"
-    
-    session = UserSession(
-        user_id=user.id,
-        session_token=session_token,
-        device_info=device_info,
-        ip_address=ip_address,
-        expires_at=datetime.utcnow() + timedelta(days=30)
-    )
-    
-    db.add(session)
-    db.commit()
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user_type="user",
-        user_id=user.id,
-        email=user.email,
-        is_email_verified=user.is_email_verified
+    count = 1
+    original_username = username
+    while db.query(User).filter(User.username == username).first():
+        username = f"{original_username}{count}"
+        count += 1
+
+    new_user = User(
+        email=caregiver_data.email,
+        username=username,
+        hashed_password=get_pass_hash(caregiver_data.password),
+        first_name=caregiver_data.first_name,
+        last_name=caregiver_data.last_name,
+        phone_number=caregiver_data.phone_number,
+        is_caregiver=True,
+        caregiver_id=caregiver_id,
+        caregiver_type=caregiver_data.caregiver_type,
+        is_email_verified=False
     )
 
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    access_token, refresh_token = create_auth_tokens(new_user, db)
+
+    return {
+        "caregiver_id": caregiver_id,
+        "email": new_user.email,
+        "first_name": new_user.first_name,
+        "last_name": new_user.last_name,
+        "caregiver_type": new_user.caregiver_type,
+        "message": "Caregiver account created successfully",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user_id": new_user.id,
+        "username": new_user.username
+    }
+
+@router.post("/signup", response_model=TokenResponse)
+async def signup_patient(
+    user_data: PatientSignupRequest,
+    db: Session = Depends(get_db)
+):
+    if db.query(User).filter(User.email == user_data.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    new_user = User(
+        email=user_data.email,
+        username=user_data.username,
+        hashed_password=get_pass_hash(user_data.password),
+        phone_number=user_data.phone_number,
+        is_caregiver=False,
+        is_email_verified=False
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    access_token, refresh_token = create_auth_tokens(new_user, db)
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user_type": "patient",
+        "user_id": new_user.id,
+        "email": new_user.email,
+        "username": new_user.username,
+        "is_email_verified": False
+    }
+    
 @router.post("/forgot-password")
 async def forgot_password(
     request_data: ForgotPasswordRequest,
