@@ -56,7 +56,8 @@ async def get_health_dashboard(
             blood_pressure="120/80",
             heart_rate=72,
             blood_glucose=90.0,
-            calories_burned=0
+            calories_burned=0,
+            date=datetime.now()
         )
         db.add(health_data)
         db.commit()
@@ -270,9 +271,14 @@ async def get_health_snapshot(
             water_intake=2000,
             blood_pressure="120/80",
             heart_rate=72,
-            blood_glucose=90.0
+            blood_glucose=90.0,
+            date=datetime.now()
         )
         db.add(snapshot)
+        db.commit()
+        db.refresh(snapshot)
+    
+    return snapshot
     
 
 @router.post("/health-data", response_model=HealthDataResponse)
@@ -281,7 +287,9 @@ async def add_health_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    health_record = HealthData(user_id=current_user.id, **health_data.dict())
+    data_dict = health_data.dict()
+    data_dict['date'] = datetime.now()
+    health_record = HealthData(user_id=current_user.id, **data_dict)
     db.add(health_record)
     db.commit()
     db.refresh(health_record)
