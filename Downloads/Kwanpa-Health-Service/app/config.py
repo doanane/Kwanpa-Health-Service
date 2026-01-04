@@ -1,0 +1,128 @@
+from pydantic import BaseModel
+from typing import List, Optional
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+
+class Settings(BaseModel):
+    # Database
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    LOCAL_DB_URL: Optional[str] = os.getenv("LOCAL_DB_URL", None)
+
+    # Azure Custom Vision
+    AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT: str = os.getenv(
+        "AZURE_CUSTOM_VISION_PREDICTION_ENDPOINT", ""
+    )
+    AZURE_CUSTOM_VISION_PREDICTION_KEY: str = os.getenv(
+        "AZURE_CUSTOM_VISION_PREDICTION_KEY", ""
+    )
+
+    # Gemini AI
+    GEMINI_API: str = os.getenv("GEMINI_API", "")
+
+    # JWT Authentication
+    SECRET_KEY: str = os.getenv(
+        "SECRET_KEY", "-GHyAbetQfDupfx6XXyDkSu0vVkKzmdG4kIMYp7Q13A"
+    )
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
+        os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    )
+    REFRESH_TOKEN_EXPIRE_DAYS: int = int(
+        os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7")
+    )  # noqa
+
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+
+    CORS_ORIGINS: List[str] = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:8081,http://localhost:5173,"
+        "http://127.0.0.1:3000,http://127.0.0.1:8081,http://127.0.0.1:5173",
+    ).split(",")
+
+    # Email Service
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
+    FROM_EMAIL: str = os.getenv("FROM_EMAIL", "noreply@hewal3.com")
+    HEWAL3_SUPPORT_EMAIL: str = os.getenv(
+        "HEWAL3_SUPPORT_EMAIL", "support@hewal3.com"
+    )  # noqa
+
+    # SMS Service
+    INFOBIP_API_KEY: str = os.getenv("INFOBIP_API_KEY", "")
+    INFOBIP_BASE_URL: str = os.getenv("INFOBIP_BASE_URL", "")
+    INFOBIP_SENDER_ID: str = os.getenv("INFOBIP_SENDER_ID", "HEWAL3")
+    INFOBIP_SENDER_NUMBER: str = os.getenv("INFOBIP_SENDER_NUMBER", "")
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_REDIRECT_URI: str = os.getenv(
+        "GOOGLE_REDIRECT_URI",
+        "https://hewal3-backend-api-aya3dzgefte4b3c3.southafricanorth-01.azurewebsites.net/auth/google/callback",  # noqa
+    )
+
+    # Allowed Origins
+    ALLOWED_ORIGINS: List[str] = eval(
+        os.getenv(
+            "ALLOWED_ORIGINS",
+            '["http://localhost:3000", "http://localhost:8081", "http://localhost:5173",'  # noqa
+            ' "http://127.0.0.1:3000", "http://127.0.0.1:8081", "http://127.0.0.1:5173"]',  # noqa
+        )
+    )
+
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+
+    # Password Policy
+    MIN_PASSWORD_LENGTH: int = int(os.getenv("MIN_PASSWORD_LENGTH", "8"))
+    REQUIRE_PASSWORD_SPECIAL_CHARS: bool = (
+        os.getenv("REQUIRE_PASSWORD_SPECIAL_CHARS", "true").lower() == "true"
+    )
+    REQUIRE_PASSWORD_UPPERCASE: bool = (
+        os.getenv("REQUIRE_PASSWORD_UPPERCASE", "true").lower() == "true"
+    )
+
+    # Azure AI Services
+    AZURE_AI_VISION_ENDPOINT: str = os.getenv("AZURE_AI_VISION_ENDPOINT", "")
+    AZURE_AI_VISION_KEY: str = os.getenv("AZURE_AI_VISION_KEY", "")
+    AZURE_OPENAI_ENDPOINT: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+    AZURE_OPENAI_KEY: str = os.getenv("AZURE_OPENAI_KEY", "")
+
+    AZURE_OPENAI_DEPLOYMENT: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "")
+
+    AZURE_OPENAI_API_VERSION: str = os.getenv("AZURE_OPENAI_API_VERSION", "")
+
+    # IoT Hub
+    IOT_HUB_CONNECTION_STRING: str = os.getenv("IOT_CONNECTION_STRING", "")  # noqa
+
+    # Storage
+    AZURE_STORAGE_CONNECTION_STRING: str = os.getenv(
+        "AZURE_STORAGE_CONNECTION_STRING", ""
+    )
+    AZURE_STORAGE_CONTAINER: str = os.getenv(
+        "AZURE_STORAGE_CONTAINER", "food-images"
+    )  # noqa
+
+    # Base URLs
+    BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8081")
+    API_PREFIX: str = os.getenv("API_PREFIX", "")
+
+    # Security Settings (aliases for compatibility)
+    JWT_SECRET_KEY: str = os.getenv(
+        "JWT_SECRET_KEY",
+        os.getenv("SECRET_KEY", "-GHyAbetQfDupfx6XXyDkSu0vVkKzmdG4kIMYp7Q13A"),
+    )
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
+        os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    )
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(
+        os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7")
+    )
+
+
+settings = Settings()
