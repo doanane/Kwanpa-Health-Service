@@ -363,16 +363,18 @@ async def signup(
         user.username or user.email.split('@')[0],
         verification_token
     )
-    
-    
+
+    # Patient signup defaults to patient user_type for downstream auth checks
+    user_type = "patient"
+
     access_token = create_access_token(
         data={"sub": str(user.id)},
-        user_type="user"
+        user_type=user_type
     )
-    
+
     refresh_token = create_refresh_token(user.id, db)
-    
-    
+
+
     session_token = generate_token()
     session = UserSession(
         user_id=user.id,
@@ -389,7 +391,8 @@ async def signup(
         user_type=user_type,
         user_id=user.id,
         email=user.email,
-        is_email_verified=user.is_email_verified
+        is_email_verified=user.is_email_verified,
+        username=user.username
     )
 
 @router.post("/login", response_model=TokenResponse)
