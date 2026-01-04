@@ -106,7 +106,6 @@ class Settings(BaseModel):
         "AZURE_STORAGE_CONTAINER", "food-images"
     )  # noqa
 
-    # Base URLs
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8081")
     API_PREFIX: str = os.getenv("API_PREFIX", "")

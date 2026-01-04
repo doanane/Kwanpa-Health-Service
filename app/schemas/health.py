@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-
+# --- EXISTING BASE MODELS (PRESERVED) ---
 class HealthDataBase(BaseModel):
     steps: Optional[int] = Field(0, description="Number of steps taken")
     sleep_time: Optional[int] = Field(None, description="Sleep duration in minutes")
@@ -65,7 +65,7 @@ class HealthInsightResponse(BaseModel):
 class ProgressUpdateRequest(BaseModel):
     progress_score: int = Field(..., ge=0, le=100, description="Progress score from 0 to 100")
 
-
+# --- NEW APPLE FITNESS MODELS (ADDED) ---
 
 class ActivityRing(BaseModel):
     move: int
@@ -79,7 +79,7 @@ class HealthTrend(BaseModel):
     category: str
     icon: str  
     value: str
-    trend: str 
+    trend: str # "up", "down", "neutral"
     message: str
 
 class HealthCategory(BaseModel):
@@ -96,9 +96,9 @@ class DailyHealthScore(BaseModel):
     message: str
     trend_percentage: int
 
-
+# --- UPDATED DASHBOARD RESPONSE (MERGED) ---
 class HealthDashboardResponse(BaseModel):
-    
+    # Old Fields (Preserved for compatibility)
     welcome_message: str
     weekly_progress: WeeklyProgressResponse
     health_snapshot: HealthDataResponse
@@ -107,7 +107,7 @@ class HealthDashboardResponse(BaseModel):
     recent_meals: List[Dict[str, Any]] = []
     meal_count_today: int = 0
     
-    
+    # New Apple Fitness Fields (Added)
     daily_score: DailyHealthScore
     activity_rings: ActivityRing
     trends: List[HealthTrend]

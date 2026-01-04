@@ -7,6 +7,9 @@ from app.database import get_db
 from app.auth.security import get_current_user
 from app.models.user import User
 from app.models.caregiver import CaregiverRelationship
+from app.models.notification import Notification
+# Reuse messaging WebSocket manager for real-time signals when online
+from app.routers.messages import manager as ws_manager
 
 router = APIRouter(prefix="/caregivers", tags=["caregivers"])
 
@@ -36,6 +39,18 @@ class CaregiverPatientResponse(BaseModel):
     status: str
     assigned_since: datetime
 
+class IncomingRequestResponse(BaseModel):
+    request_id: int
+    caregiver_id: int
+    caregiver_name: str
+    caregiver_email: str
+    relationship_type: str
+    status: str
+    created_at: datetime
+
+class RespondRequestBody(BaseModel):
+    action: str  # "approve" or "reject"
+
 # Helper function to check if user is caregiver
 def verify_caregiver(user: User) -> None:
     """Raise exception if user is not a caregiver"""
@@ -52,6 +67,29 @@ def get_approved_relationships(user_id: int, db: Session) -> List[CaregiverRelat
         CaregiverRelationship.caregiver_id == user_id,
         CaregiverRelationship.status == "approved"
     ).all()
+
+
+def _create_notification(db: Session, user_id: int, title: str, message: str, sender_id: int, sender_type: str = "caregiver"):
+    notification = Notification(
+        user_id=user_id,
+        notification_type="caregiver",
+        title=title,
+        message=message,
+        sender_id=sender_id,
+        sender_type=sender_type
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    return notification
+
+
+async def _push_ws_event(user_id: int, payload: dict):
+    try:
+        await ws_manager.send_personal_message(payload, user_id)
+    except Exception as e:
+        # Non-fatal: user might be offline
+        print(f"WS notify failed for user {user_id}: {e}")
 
 # Endpoints
 @router.get("/test")
@@ -225,6 +263,120 @@ async def connect_with_patient(
         "request_id": relationship.id,
         "status": relationship.status
     }
+
+
+@router.post("/connect-caregiver")
+async def connect_with_caregiver(
+    caregiver_id: str = Body(..., embed=True, description="Caregiver ID to connect with"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Patient initiates a connection request to a caregiver using caregiver_id"""
+    # Current user is patient by intent; no strict check to allow flexibility
+    if not caregiver_id or not caregiver_id.strip():
+        raise HTTPException(status_code=400, detail="Caregiver ID cannot be empty")
+
+    caregiver = db.query(User).filter(User.caregiver_id == caregiver_id).first()
+    if not caregiver:
+        raise HTTPException(status_code=404, detail="Caregiver not found")
+
+    if caregiver.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot connect to yourself")
+
+    existing = db.query(CaregiverRelationship).filter(
+        CaregiverRelationship.caregiver_id == caregiver.id,
+        CaregiverRelationship.patient_id == current_user.id
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Request already exists or you are already connected")
+
+    relationship = CaregiverRelationship(
+        caregiver_id=caregiver.id,
+        patient_id=current_user.id,
+        relationship_type="professional",
+        status="pending"
+    )
+    db.add(relationship)
+    db.commit()
+    db.refresh(relationship)
+
+    title = "New patient connection request"
+    message = f"{current_user.email or current_user.username} wants to connect with you."
+    _create_notification(db, caregiver.id, title, message, current_user.id, sender_type="patient")
+    await _push_ws_event(caregiver.id, {"type": "connection_request", "request_id": relationship.id, "from_user_id": current_user.id})
+
+    return {
+        "message": "Connection request sent to caregiver",
+        "caregiver_email": caregiver.email,
+        "caregiver_name": f"{getattr(caregiver, 'first_name', '')} {getattr(caregiver, 'last_name', '')}".strip(),
+        "request_id": relationship.id,
+        "status": relationship.status
+    }
+
+
+@router.get("/requests/incoming", response_model=List[IncomingRequestResponse])
+async def list_incoming_requests(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Patients see pending caregiver connection requests"""
+    requests = db.query(CaregiverRelationship).filter(
+        CaregiverRelationship.patient_id == current_user.id,
+        CaregiverRelationship.status == "pending"
+    ).order_by(CaregiverRelationship.created_at.desc()).all()
+
+    result: List[IncomingRequestResponse] = []
+    for rel in requests:
+        caregiver = db.query(User).filter(User.id == rel.caregiver_id).first()
+        if caregiver:
+            result.append(IncomingRequestResponse(
+                request_id=rel.id,
+                caregiver_id=rel.caregiver_id,
+                caregiver_name=f"{getattr(caregiver, 'first_name', '')} {getattr(caregiver, 'last_name', '')}".strip() or caregiver.email,
+                caregiver_email=caregiver.email,
+                relationship_type=rel.relationship_type,
+                status=rel.status,
+                created_at=rel.created_at
+            ))
+
+    return result
+
+
+@router.post("/requests/{request_id}/respond")
+async def respond_request(
+    request_id: int,
+    body: RespondRequestBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Patient approves or rejects a caregiver connection request"""
+    rel = db.query(CaregiverRelationship).filter(
+        CaregiverRelationship.id == request_id,
+        CaregiverRelationship.patient_id == current_user.id
+    ).first()
+
+    if not rel:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    if rel.status != "pending":
+        raise HTTPException(status_code=400, detail="Request already processed")
+
+    action = body.action.lower()
+    if action not in {"approve", "reject"}:
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+    rel.status = "approved" if action == "approve" else "rejected"
+    db.commit()
+    db.refresh(rel)
+
+    caregiver = db.query(User).filter(User.id == rel.caregiver_id).first()
+    title = "Connection response"
+    message = f"Patient {current_user.email or current_user.username} {rel.status} your request."
+    _create_notification(db, rel.caregiver_id, title, message, current_user.id, sender_type="patient")
+    await _push_ws_event(rel.caregiver_id, {"type": "connection_response", "request_id": rel.id, "status": rel.status})
+
+    return {"message": f"Request {rel.status}"}
 
 @router.get("/my-id")
 async def get_my_caregiver_id(

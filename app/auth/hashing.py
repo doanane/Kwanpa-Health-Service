@@ -16,10 +16,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     if not plain_password or not hashed_password:
         return False
 
-    
+    # Ensure bytes for consistent length checking
     password_bytes = plain_password.encode('utf-8')
     
-    
+    # If password is too long, truncate it to 71 bytes (safe limit for bcrypt)
     if len(password_bytes) > 71:
         plain_password = password_bytes[:71].decode('utf-8', errors='ignore')
         
@@ -36,7 +36,7 @@ def get_password_hash(password: str) -> str:
         
     password_bytes = password.encode('utf-8')
     
-    
+    # Truncate if too long to prevent crash
     if len(password_bytes) > 71:
         password = password_bytes[:71].decode('utf-8', errors='ignore')
         

@@ -308,14 +308,19 @@ def create_refresh_token(user_id: int, db: Session):
 
 @router.post("/signup", response_model=TokenResponse)
 async def signup(
-    user_data: UserCreate,
+    user_data: PatientSignupRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """Register a new patient user"""
     
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    # Normalize email to lowercase
+    email = user_data.email.lower().strip()
+    logger.info(f"Signup attempt for email: {email}, username: {user_data.username}")
+    
+    existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
+        logger.warning(f"Signup failed: Email already registered {email}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
@@ -324,26 +329,31 @@ async def signup(
     if user_data.username:
         existing_user = db.query(User).filter(User.username == user_data.username).first()
         if existing_user:
+            logger.warning(f"Signup failed: Username already taken {user_data.username}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already taken"
             )
     
-    
+    # Create new user with proper fields
     hashed_password = get_pass_hash(user_data.password)
+    logger.info(f"Password hashed for {email}")
+    
     user = User(
-        email=user_data.email,
+        email=email,
         username=user_data.username,
         hashed_password=hashed_password,
         phone_number=user_data.phone_number,
+        is_caregiver=False,
         is_email_verified=False
     )
     
     db.add(user)
     db.commit()
     db.refresh(user)
+    logger.info(f"User created successfully: ID {user.id}, email: {user.email}")
     
-    
+    # Send welcome email with verification token
     verification_token = generate_token()
     expires_at = datetime.utcnow() + timedelta(hours=24)
     
@@ -355,7 +365,7 @@ async def signup(
     
     db.add(verification)
     db.commit()
-    
+    logger.info(f"Verification token created for user {user.id}")
     
     background_tasks.add_task(
         email_service.send_welcome_email,
@@ -367,14 +377,10 @@ async def signup(
     # Patient signup defaults to patient user_type for downstream auth checks
     user_type = "patient"
 
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        user_type=user_type
-    )
+    access_token, refresh_token = create_auth_tokens(user, db)
+    logger.info(f"Auth tokens generated for user {user.id}")
 
-    refresh_token = create_refresh_token(user.id, db)
-
-
+    # Create session log
     session_token = generate_token()
     session = UserSession(
         user_id=user.id,
@@ -384,15 +390,20 @@ async def signup(
     
     db.add(session)
     db.commit()
+    logger.info(f"Session created for user {user.id}")
     
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
+        token_type="bearer",
         user_type=user_type,
         user_id=user.id,
         email=user.email,
         is_email_verified=user.is_email_verified,
-        username=user.username
+        username=user.username,
+        is_caregiver=False,
+        caregiver_id=None,
+        profile_image=None
     )
 
 @router.post("/login", response_model=TokenResponse)
@@ -401,29 +412,45 @@ async def login_patient(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.email == login_data.email).first()
+    # Normalize email to lowercase
+    email = login_data.email.lower().strip()
+    logger.info(f"Login attempt for email: {email}")
     
-    if not user or not verify_pass(login_data.password, user.hashed_password):
+    user = db.query(User).filter(User.email == email).first()
+    
+    if not user:
+        logger.warning(f"Login failed: User not found with email {email}")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    logger.info(f"User found: {user.id}, is_caregiver: {user.is_caregiver}")
+    
+    password_valid = verify_pass(login_data.password, user.hashed_password)
+    logger.info(f"Password verification result: {password_valid}")
+    
+    if not password_valid:
+        logger.warning(f"Login failed: Invalid password for user {user.id}")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     user.last_login = datetime.utcnow()
     db.commit()
+    logger.info(f"Login successful for user {user.id}")
 
     access_token, refresh_token = create_auth_tokens(user, db)
     create_session_log(db, user.id, request)
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user_type": "caregiver" if user.is_caregiver else "patient",
-        "user_id": user.id,
-        "caregiver_id": user.caregiver_id if user.is_caregiver else None,
-        "email": user.email,
-        "username": user.username,
-        "is_email_verified": user.is_email_verified,
-        "profile_image": user.profile_image_url
-    }
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user_type="caregiver" if user.is_caregiver else "patient",
+        user_id=user.id,
+        caregiver_id=user.caregiver_id if user.is_caregiver else None,
+        email=user.email,
+        username=user.username,
+        is_email_verified=user.is_email_verified,
+        is_caregiver=user.is_caregiver,
+        profile_image=getattr(user, "profile_image_url", None)
+    )
 
 @router.post("/signup/caregiver", response_model=CaregiverSignupResponse)
 async def signup_caregiver(
@@ -431,10 +458,16 @@ async def signup_caregiver(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
+    # Normalize email to lowercase
+    email = caregiver_data.email.lower().strip()
+    logger.info(f"Caregiver signup attempt for email: {email}")
+    
     if not caregiver_data.agree_to_terms:
+        logger.warning(f"Caregiver signup failed: User did not agree to terms")
         raise HTTPException(status_code=400, detail="You must agree to the terms")
 
-    if db.query(User).filter(User.email == caregiver_data.email).first():
+    if db.query(User).filter(User.email == email).first():
+        logger.warning(f"Caregiver signup failed: Email already registered {email}")
         raise HTTPException(status_code=400, detail="Email already registered")
 
     caregiver_id = f"CG{uuid.uuid4().hex[:8].upper()}"
@@ -446,8 +479,10 @@ async def signup_caregiver(
         username = f"{original_username}{count}"
         count += 1
 
+    logger.info(f"Creating caregiver user with ID: {caregiver_id}, username: {username}")
+
     new_user = User(
-        email=caregiver_data.email,
+        email=email,
         username=username,
         hashed_password=get_pass_hash(caregiver_data.password),
         first_name=caregiver_data.first_name,
@@ -462,10 +497,13 @@ async def signup_caregiver(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    logger.info(f"Caregiver created successfully: ID {new_user.id}, caregiver_id: {caregiver_id}")
 
     access_token, refresh_token = create_auth_tokens(new_user, db)
+    logger.info(f"Auth tokens generated for caregiver {new_user.id}")
 
     return {
+        "user_type": "caregiver",
         "caregiver_id": caregiver_id,
         "email": new_user.email,
         "first_name": new_user.first_name,
@@ -478,40 +516,7 @@ async def signup_caregiver(
         "username": new_user.username
     }
 
-@router.post("/signup", response_model=TokenResponse)
-async def signup_patient(
-    user_data: PatientSignupRequest,
-    db: Session = Depends(get_db)
-):
-    if db.query(User).filter(User.email == user_data.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
 
-    new_user = User(
-        email=user_data.email,
-        username=user_data.username,
-        hashed_password=get_pass_hash(user_data.password),
-        phone_number=user_data.phone_number,
-        is_caregiver=False,
-        is_email_verified=False
-    )
-    
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    access_token, refresh_token = create_auth_tokens(new_user, db)
-    
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user_type": "patient",
-        "user_id": new_user.id,
-        "email": new_user.email,
-        "username": new_user.username,
-        "is_email_verified": False
-    }
-    
 @router.post("/forgot-password")
 async def forgot_password(
     request_data: ForgotPasswordRequest,

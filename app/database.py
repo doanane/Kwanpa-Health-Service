@@ -12,22 +12,22 @@ def get_database_url():
     """Get database URL with fallbacks"""
     db_url = settings.DATABASE_URL
     
-    
+    # If Azure URL provided, use it
     if db_url and "azure" in db_url.lower():
         logger.info("Using Azure PostgreSQL connection")
         return db_url
     
-    
+    # Otherwise use local PostgreSQL
     if db_url:
         logger.info("Using configured database URL")
         return db_url
         
     return "sqlite:///./hewal3.db"
 
-
+# Get database URL
 db_url = get_database_url()
 
-
+# Create engine
 try:
     if "sqlite" in db_url:
         engine = create_engine(db_url, connect_args={"check_same_thread": False})
@@ -42,7 +42,7 @@ try:
             connect_args={'connect_timeout': 10}
         )
     
-    
+    # Test connection
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     logger.info("Database connection successful")
@@ -50,7 +50,7 @@ try:
 except Exception as e:
     logger.error(f"Database connection failed: {e}")
     
-    
+    # Fallback to SQLite
     logger.info("Falling back to SQLite...")
     engine = create_engine("sqlite:///./hewal3.db", 
                           connect_args={"check_same_thread": False},
@@ -70,7 +70,7 @@ def get_db():
 def create_tables(preserve_data: bool = True):
     """Create database tables with option to preserve data"""
     try:
-        
+        # SQLite fallback often has schema drift; recreate tables to match models
         if engine.dialect.name == "sqlite":
             logger.warning("SQLite detected – recreating tables to keep schema in sync")
             Base.metadata.drop_all(bind=engine)
@@ -81,10 +81,10 @@ def create_tables(preserve_data: bool = True):
                 Base.metadata.drop_all(bind=engine)
             Base.metadata.create_all(bind=engine)
         
-        
-        
-        
-        
+        # if preserve_data:
+        #     logger.info("Database tables verified - existing data preserved")
+        # else:
+        #     logger.info("Database tables recreated - all data cleared")
         
     except Exception as e:
         logger.error(f"Error creating tables: {e}")
