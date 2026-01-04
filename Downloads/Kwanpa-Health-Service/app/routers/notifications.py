@@ -13,7 +13,6 @@ from app.schemas.notification import NotificationResponse, NotificationGroupResp
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
-# WebSocket connection manager for real-time notifications
 class NotificationConnectionManager:
     def __init__(self):
         self.active_connections: Dict[int, WebSocket] = {}
