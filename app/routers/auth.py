@@ -70,14 +70,14 @@ class TokenResponse(BaseModel):
     is_email_verified: bool
     is_caregiver: bool = False 
     caregiver_id: Optional[str] = None 
-    username: str = None
-    profile_image: str = None
+    username: Optional[str] = None
+    profile_image: Optional[str] = None
 
 class PatientSignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
     username: str
-    phone_number: str = None
+    phone_number: Optional[str] = None
 def create_session_log(db: Session, user_id: int, request: Request):
     session_token = secrets.token_urlsafe(32)
     device_info = request.headers.get("User-Agent", "Unknown")
