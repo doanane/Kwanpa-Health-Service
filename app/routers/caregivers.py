@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
+import logging
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -12,6 +13,7 @@ from app.models.notification import Notification
 from app.routers.messages import manager as ws_manager
 
 router = APIRouter(prefix="/caregivers", tags=["caregivers"])
+logger = logging.getLogger(__name__)
 
 # Pydantic Models
 class CaregiverUpdateRequest(BaseModel):
@@ -124,24 +126,25 @@ async def get_assigned_patients(
 ):
     """Get all patients assigned to this caregiver"""
     verify_caregiver(current_user)
-    
-    relationships = get_approved_relationships(current_user.id, db)
-    
-    patients = []
-    for rel in relationships:
-        patient = db.query(User).filter(User.id == rel.patient_id).first()
-        if patient:
-            patients.append({
-                "patient_id": patient.id,
-                "email": patient.email or "",
-                "username": getattr(patient, 'username', None),
-                "phone_number": getattr(patient, 'phone_number', None),
-                "relationship_type": rel.relationship_type,
-                "status": rel.status,
-                "assigned_since": rel.created_at
-            })
-    
-    return patients
+    try:
+        relationships = get_approved_relationships(current_user.id, db)
+        patients = []
+        for rel in relationships:
+            patient = db.query(User).filter(User.id == rel.patient_id).first()
+            if patient:
+                patients.append({
+                    "patient_id": patient.id,
+                    "email": patient.email or "",
+                    "username": getattr(patient, 'username', None),
+                    "phone_number": getattr(patient, 'phone_number', None),
+                    "relationship_type": rel.relationship_type,
+                    "status": rel.status,
+                    "assigned_since": rel.created_at
+                })
+        return patients
+    except Exception:
+        logger.exception("Error fetching assigned patients for caregiver_id=%s", getattr(current_user, "id", None))
+        raise HTTPException(status_code=500, detail="Failed to fetch patients")
 
 @router.post("/request-access")
 async def request_patient_access(
@@ -404,26 +407,27 @@ async def caregiver_dashboard(
 ):
     """Get caregiver dashboard summary"""
     verify_caregiver(current_user)
-    
-    relationships = get_approved_relationships(current_user.id, db)
-    patient_ids = [rel.patient_id for rel in relationships]
-    
-    pending_count = db.query(CaregiverRelationship).filter(
-        CaregiverRelationship.caregiver_id == current_user.id,
-        CaregiverRelationship.status == "pending"
-    ).count()
-    
-    return {
-        "total_patients": len(patient_ids),
-        "pending_requests": pending_count,
-        "caregiver_status": "active",
-        "recent_activity": [
-            {
-                "patient_id": rel.patient_id,
-                "relationship_type": rel.relationship_type,
-                "status": rel.status,
-                "since": rel.created_at
-            }
-            for rel in relationships[:5]
-        ]
-    }
+    try:
+        relationships = get_approved_relationships(current_user.id, db)
+        patient_ids = [rel.patient_id for rel in relationships]
+        pending_count = db.query(CaregiverRelationship).filter(
+            CaregiverRelationship.caregiver_id == current_user.id,
+            CaregiverRelationship.status == "pending"
+        ).count()
+        return {
+            "total_patients": len(patient_ids),
+            "pending_requests": pending_count,
+            "caregiver_status": "active",
+            "recent_activity": [
+                {
+                    "patient_id": rel.patient_id,
+                    "relationship_type": rel.relationship_type,
+                    "status": rel.status,
+                    "since": rel.created_at
+                }
+                for rel in relationships[:5]
+            ]
+        }
+    except Exception:
+        logger.exception("Error building caregiver dashboard for caregiver_id=%s", getattr(current_user, "id", None))
+        raise HTTPException(status_code=500, detail="Failed to fetch caregiver dashboard")
