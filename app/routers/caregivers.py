@@ -57,7 +57,7 @@ def verify_caregiver(user: User) -> None:
     if not getattr(user, 'is_caregiver', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a caregiver"
+            detail="This endpoint requires caregiver privileges"
         )
 
 # Helper function to get approved relationships
